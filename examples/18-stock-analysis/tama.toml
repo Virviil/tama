@@ -1,0 +1,7 @@
+[project]
+name = "stock-analysis"
+entrypoint = "pipeline"
+
+[models]
+default = "anthropic:claude-haiku-4-5-20251001"
+thinker = "anthropic:claude-sonnet-4-6"

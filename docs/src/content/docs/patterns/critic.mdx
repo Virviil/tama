@@ -1,0 +1,119 @@
+---
+title: critic
+description: A three-step FSM — draft → critique → refine. For iterative quality improvement.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+`critic` is a fixed three-step pipeline: a drafter produces initial output, a critic identifies weaknesses, and a refiner improves the result.
+
+It's equivalent to an `fsm` with three unconditional steps: draft → critique → refine.
+
+## When to use it
+
+- Essay or document writing with quality improvement
+- Code generation with review
+- Any task where a draft-critique-refine loop improves quality
+- Structured iterative refinement with separate agent roles
+
+## File structure
+
+```
+agents/my-critic/
+├── AGENT.md      ← pattern: critic, shared config
+├── draft.md      ← system prompt for the draft step
+├── critique.md   ← system prompt for the critique step
+└── refine.md     ← system prompt for the refine step
+```
+
+## AGENT.md
+
+```yaml
+---
+name: essay-critic
+description: Writes and refines essays through critique.
+version: "1.0.0"
+pattern: critic
+call:
+  model:
+    role: writer
+---
+```
+
+No body needed — each step has its own `.md` file.
+
+## draft.md
+
+```markdown
+You are an expert writer. Given the topic or requirements, write a comprehensive first draft.
+
+Focus on:
+- Clear structure with logical flow
+- Specific, concrete examples
+- Engaging opening and strong conclusion
+
+Write the complete draft. Call finish with key="done" and the full draft as value.
+```
+
+## critique.md
+
+```markdown
+You are a rigorous editor. You have received a draft to evaluate.
+
+Identify the three most significant weaknesses:
+1. Content gaps or factual issues
+2. Structural or flow problems
+3. Style or clarity issues
+
+For each weakness, provide specific, actionable improvement suggestions.
+
+Call finish with key="done" and the critique as value.
+```
+
+## refine.md
+
+```markdown
+You have a draft and a critique. Rewrite the draft to address every critique point.
+
+Make targeted improvements — don't rewrite what's already good.
+Preserve the strengths of the original draft.
+
+Call finish with key="done" and the improved draft as value.
+```
+
+## Scaffold
+
+```bash
+tama add critic my-agent
+```
+
+## How it works
+
+<Steps>
+
+1. **Draft** — `draft.md` receives the original task and produces the first version
+
+2. **Critique** — `critique.md` receives the draft and identifies specific weaknesses
+
+3. **Refine** — `refine.md` receives the original task + critique and produces the improved result
+
+</Steps>
+
+## Per-step model configuration
+
+Each step file can override the model:
+
+```markdown
+---
+call:
+  model:
+    name: anthropic:claude-opus-4-6
+    temperature: 0.1
+---
+
+You are a rigorous editor...
+```
+
+## Need more flexibility?
+
+`critic` always runs all three steps unconditionally. For conditional routing (e.g., skip critique if the draft is already good), use [`fsm`](/patterns/fsm) instead.

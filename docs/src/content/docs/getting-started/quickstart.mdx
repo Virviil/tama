@@ -1,0 +1,122 @@
+---
+title: Quickstart
+description: Run your first tama agent in 5 minutes.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+<Steps>
+
+1. **Create a project**
+
+   ```bash
+   tama init my-project
+   cd my-project
+   ```
+
+   This creates:
+   ```
+   my-project/
+   ├── tama.toml
+   ├── agents/
+   └── skills/
+   ```
+
+2. **Add your first agent**
+
+   ```bash
+   tama add oneshot summarizer
+   ```
+
+   This scaffolds `agents/summarizer/AGENT.md`:
+
+   ```yaml
+   ---
+   name: summarizer
+   description: Summarizes text concisely.
+   version: "1.0.0"
+   pattern: oneshot
+   call:
+     model:
+       role: thinker
+   ---
+
+   You are a concise summarizer. Given any text, return a clear 2-3 sentence summary.
+   ```
+
+3. **Set your API key and model**
+
+   ```bash
+   export ANTHROPIC_API_KEY=sk-ant-...
+   export TAMA_MODEL_THINKER=anthropic:claude-sonnet-4-6
+   ```
+
+4. **Run it**
+
+   ```bash
+   tamad "The Rust programming language is a systems language that guarantees memory safety \
+   without a garbage collector, using a borrow checker to enforce ownership rules at compile time."
+   ```
+
+   Output:
+   ```
+   Rust is a systems programming language that ensures memory safety at compile time through
+   its ownership and borrow checker system, eliminating the need for a garbage collector.
+   ```
+
+5. **Try a more powerful pattern**
+
+   Add a research agent with web search:
+
+   ```bash
+   tama add react researcher
+   tama add skill search-web
+   ```
+
+   Edit `agents/researcher/AGENT.md`:
+
+   ```yaml
+   ---
+   name: researcher
+   description: Researches topics using web search.
+   version: "1.0.0"
+   pattern: react
+   call:
+     model:
+       role: thinker
+     uses:
+       - search-web
+   ---
+
+   You are a research assistant. Use search-web to find current information.
+   When you have a comprehensive answer, call finish with key="done" and your findings.
+   ```
+
+   Point `tama.toml` at the new entrypoint:
+
+   ```toml
+   [project]
+   name = "my-project"
+   entrypoint = "researcher"
+   ```
+
+   Run:
+
+   ```bash
+   tama run "What are the latest developments in fusion energy?"
+   ```
+
+</Steps>
+
+## What just happened?
+
+- `tama init` created the project scaffold
+- `tama add` generated an agent with the correct file structure
+- `tama run` executed the agent graph starting from the entrypoint
+- The agent received your input as its first `start()` call and ran until `finish()`
+
+## Next steps
+
+- [Core Concepts](/getting-started/concepts) — understand how data flows through agents
+- [Patterns overview](/patterns/overview) — choose the right pattern for your use case
+- [Writing a Skill](/skills/writing) — give agents access to external tools

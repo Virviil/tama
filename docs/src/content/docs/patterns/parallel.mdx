@@ -1,0 +1,109 @@
+---
+title: parallel
+description: Run a fixed list of heterogeneous agents concurrently with the same input, then collect results.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+`parallel` runs a fixed, pre-defined list of agents simultaneously. All workers receive the same input. Results are collected into a map before the next step.
+
+## When to use it
+
+- Independent analyses of the same input (financial, reputational, technical)
+- Voting or consensus between multiple specialized agents
+- Running different models or prompting strategies simultaneously
+- Any task where you want multiple independent perspectives
+
+## AGENT.md
+
+```yaml
+---
+name: due-diligence
+description: Runs financial and reputational analysis in parallel.
+version: "1.0.0"
+pattern: parallel
+workers:
+  - finance-analyst
+  - reputation-analyst
+  - legal-analyst
+call:
+  model:
+    role: thinker
+---
+```
+
+No body needed — the `parallel` pattern doesn't make its own LLM call. It delegates to the listed workers.
+
+## Scaffold
+
+```bash
+tama add parallel my-agent
+```
+
+## How it works
+
+<Steps>
+
+1. **All workers start** — every agent in `workers:` receives the same input and runs concurrently
+
+2. **Results collected** — the runtime waits for all workers to complete
+
+3. **Output combined** — all results are returned as a JSON map `{ "agent-name": "result", ... }` with `key="done"`
+
+</Steps>
+
+## Difference from scatter
+
+| | `parallel` | `scatter` |
+|--|-----------|-----------|
+| Workers | Different agents, heterogeneous | Same agent, homogeneous |
+| Input per worker | Same input for all | Different item for each |
+| Worker list | Static, defined at design time | Dynamic, decided by map agent at runtime |
+| Reduce step | None (just collects) | `reduce.md` synthesizes results |
+
+## Example: combining with fsm
+
+`parallel` by itself just collects results. To do something with them, nest it in an `fsm`:
+
+```yaml
+---
+name: investment-analyzer
+description: Runs parallel analyses then synthesizes a recommendation.
+version: "1.0.0"
+pattern: fsm
+initial: analyze
+states:
+  analyze: synthesize    # parallel step
+  synthesize:            # terminal
+---
+```
+
+```yaml
+# agents/analyze/AGENT.md
+---
+name: analyze
+description: Runs parallel due diligence analyses.
+version: "1.0.0"
+pattern: parallel
+workers:
+  - finance-analyst
+  - reputation-analyst
+---
+```
+
+```yaml
+# agents/synthesize/AGENT.md
+---
+name: synthesize
+description: Synthesizes parallel analysis results into a recommendation.
+version: "1.0.0"
+pattern: oneshot
+call:
+  model:
+    role: thinker
+---
+
+You receive a JSON map of parallel analyses.
+Synthesize them into a single investment recommendation: BUY, HOLD, or SELL.
+Justify your recommendation with specific points from each analysis.
+```

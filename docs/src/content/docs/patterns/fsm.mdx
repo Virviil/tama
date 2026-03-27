@@ -1,0 +1,143 @@
+---
+title: fsm
+description: User-defined finite state machine over named agents. The escape hatch when no pre-built pattern fits.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+`fsm` is a user-defined finite state machine that routes between named agents based on the `key` they return in `finish(key, value)`.
+
+It's the escape hatch: when no pre-built pattern fits your workflow, `fsm` gives you full control.
+
+## When to use it
+
+- Workflows with conditional branching
+- Loops with early exit conditions (e.g., critic with a "good enough" shortcut)
+- Custom multi-agent pipelines not covered by named patterns
+- Nesting pre-built patterns inside a larger workflow
+
+## AGENT.md
+
+```yaml
+---
+name: review-pipeline
+description: Review pipeline with conditional routing.
+version: "1.0.0"
+pattern: fsm
+initial: draft
+states:
+  draft:
+    - good-enough: done     # skip critique if draft is already good
+    - needs-work: critique
+  critique: refine           # unconditional: always go to refine after critique
+  refine:
+    - good-enough: done
+    - needs-work: critique   # loop back for another round
+  done:                      # terminal — no transitions
+call:
+  model:
+    role: thinker
+---
+```
+
+No body needed — the FSM itself doesn't make an LLM call. It routes between the named agents.
+
+## Scaffold
+
+```bash
+tama add fsm my-agent
+```
+
+## How it works
+
+<Steps>
+
+1. **Start** — execution begins at the `initial:` agent, which receives the original input
+
+2. **Agent runs** — the current agent runs (any pattern) and calls `finish(key, value)`
+
+3. **Route** — the FSM looks up the key in the current state's transition table and moves to the next state; `value` becomes the input to the next agent
+
+4. **Terminate** — when execution reaches a terminal state (no transitions), the last agent's key and value are returned as the FSM's output
+
+</Steps>
+
+## Transition types
+
+### Unconditional
+
+```yaml
+states:
+  agent-a: agent-b    # always goes to agent-b regardless of finish key
+```
+
+### Conditional
+
+```yaml
+states:
+  agent-a:
+    - approve: done     # key="approve" → done
+    - reject: revision  # key="reject"  → revision
+    - "*": error        # catch-all for unrecognized keys
+```
+
+First match wins. Use `"*"` as a catch-all default.
+
+### Terminal
+
+```yaml
+states:
+  done:    # no transitions — the FSM ends here
+```
+
+The output of the last agent (key + value) propagates as the FSM's output.
+
+## Nested FSMs
+
+A state in an FSM can itself be a complex agent (including another FSM). The key from the inner agent's final `finish` propagates to the outer FSM for routing:
+
+```yaml
+# outer FSM
+states:
+  editor:            # this is a nested FSM agent
+    - publish: approved
+    - escalate: human-review
+  approved:
+  human-review:
+```
+
+The inner `editor` FSM routes to a `done` terminal internally, but the key that reached that terminal (`"publish"` or `"escalate"`) propagates to the outer FSM.
+
+## System prompts
+
+The FSM itself has no body. Each state is a separate named agent with its own `AGENT.md`.
+
+The agents don't know about the FSM structure — they only know their own system prompt. The prompt should tell the agent which keys to use:
+
+```markdown
+Evaluate the draft. If it meets quality standards, call finish(key="good-enough", value=<draft>).
+If it needs significant improvement, call finish(key="needs-work", value=<critique>).
+```
+
+## Example: critic with early exit
+
+The built-in `critic` pattern always runs all three steps. With `fsm`, you can add an early exit:
+
+```yaml
+---
+name: smart-critic
+description: Critic with early exit if draft is already good.
+version: "1.0.0"
+pattern: fsm
+initial: draft
+states:
+  draft:
+    - good-enough: done    # ← impossible in pattern: critic
+    - needs-work: critique
+  critique: refine
+  refine:
+    - good-enough: done
+    - needs-work: critique  # can loop multiple rounds
+  done:
+---
+```

@@ -1,0 +1,91 @@
+---
+title: human
+description: Two-phase react with a human-in-the-loop pause between phases. For approval workflows and interactive tasks.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+`human` is a two-phase pattern with a pause for human input between phases. Phase 1 prepares a draft or question, pauses for the human to respond, then phase 2 continues with the human's input.
+
+## When to use it
+
+- Approval workflows (draft → human approves → finalize)
+- Interactive research (agent gathers context → human refines direction → agent completes)
+- Tasks that need a human checkpoint before committing to a direction
+- Any workflow where human judgment should be incorporated mid-run
+
+## File structure
+
+```
+agents/my-human/
+├── AGENT.md    ← pattern: human, config
+└── resume.md   ← system prompt for phase 2 (after human input)
+```
+
+## AGENT.md
+
+```yaml
+---
+name: draft-approver
+description: Drafts a document and requests human approval before finalizing.
+version: "1.0.0"
+pattern: human
+call:
+  model:
+    role: writer
+  uses:
+    - search-web
+---
+
+You are a document writer. Given the requirements:
+1. Research the topic thoroughly
+2. Write a complete draft
+3. Present the draft to the human for review
+
+Call finish with a channel ID as the key and the draft as the value.
+The channel ID becomes the identifier for the human pause channel.
+
+Example: finish(key="draft-review", value="Here is the draft:\n\n...")
+```
+
+## resume.md
+
+```markdown
+You receive the human reviewer's feedback on your draft.
+
+Incorporate all requested changes. If the reviewer approved without changes, return the original draft.
+If they requested edits, make precisely those edits.
+
+Call finish with key="done" and the final document as value.
+```
+
+## Scaffold
+
+```bash
+tama add human my-agent
+```
+
+## How it works
+
+<Steps>
+
+1. **Phase 1** — `AGENT.md` body runs as a react loop; when ready, calls `finish(key="channel-id", value=<draft>)`
+
+2. **Pause** — the runtime opens a channel identified by the key; in development, waits for stdin; in production, exposes an HTTP endpoint for your app to POST the response
+
+3. **Phase 2** — `resume.md` receives the human's response via `start()`; runs as a react loop; calls `finish(key="done", value=<final result>)`
+
+</Steps>
+
+## The channel key
+
+The `key` in phase 1's `finish` is a **channel ID** — not a routing word. It:
+- Identifies which channel to open for human input
+- Appears in the trace so you can correlate human responses to runs
+- Enables parallel pauses: different unique IDs can pause and resume independently
+
+## Development vs production
+
+**Development** (`tama run` CLI): the runtime pauses and prompts stdin for input.
+
+**Production** (Docker): the runtime pauses and exposes a channel ID. Your application POSTs the human response to the runtime's HTTP API when available.

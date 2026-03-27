@@ -1,0 +1,146 @@
+---
+title: reflexion
+description: Act → reflect → loop. The agent reflects on its own output and improves iteratively.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+`reflexion` is a self-improvement loop: the agent acts, a reflector evaluates the output, and the result feeds back as feedback for the next attempt — until the reflector is satisfied or `max_iter` is reached.
+
+## When to use it
+
+- Tasks requiring iterative self-improvement
+- Agents that need to learn from mistakes within a single run
+- Complex reasoning where the first attempt is rarely optimal
+- Code generation with self-testing
+
+## File structure
+
+```
+agents/my-reflexion/
+├── AGENT.md    ← pattern: reflexion, max_iter
+├── act.md      ← actor system prompt
+└── reflect.md  ← reflector system prompt
+```
+
+`AGENT.md` carries only the pattern declaration — the actor and reflector each have their own step file.
+
+## AGENT.md
+
+```yaml
+---
+name: code-improver
+description: Writes and iteratively improves code through reflection.
+version: "1.0.0"
+pattern: reflexion
+max_iter: 4
+---
+```
+
+## act.md
+
+The actor executes the task. Defaults to `pattern: react`; set `pattern: oneshot` for simpler actors.
+
+```markdown
+---
+pattern: react
+model:
+  role: thinker
+---
+
+You are an expert programmer. Write code that solves the given task.
+
+On retry iterations you will also receive your previous attempt and the reflector's feedback —
+incorporate it and produce an improved solution.
+
+Call finish(key="done", value=<final code>) when your solution is complete.
+```
+
+## reflect.md
+
+The reflector evaluates the actor's output and decides whether to stop or continue.
+
+**React reflector** — routing via `finish` key:
+
+```markdown
+---
+pattern: react
+model:
+  role: thinker
+  temperature: 0.1
+---
+
+You are a code reviewer. You have just seen an attempted solution.
+
+Evaluate it on:
+1. Correctness — does it handle edge cases?
+2. Efficiency — is the algorithm optimal?
+3. Readability — is it clean and well-commented?
+
+If the solution is already excellent, call finish(key="done", value=<verdict>).
+Otherwise, call finish(key="retry", value=<specific actionable feedback>).
+```
+
+**Oneshot reflector** — routing via value text:
+
+```markdown
+You are a code reviewer. Evaluate the attempt.
+
+If the solution is correct and clean, respond with exactly:
+DONE
+
+Otherwise respond with:
+RETRY: <specific feedback — point to what went wrong and why>
+```
+
+## Scaffold
+
+```bash
+tama add reflexion my-agent
+```
+
+## How it works
+
+<Steps>
+
+1. **Act** — `act.md` receives the task (or on later iterations: task + previous attempt + feedback) and produces a result
+
+2. **Reflect** — `reflect.md` evaluates the result and decides: satisfied (stop) or needs improvement (continue with feedback)
+
+3. **Loop** — if the reflector signals retry, the actor runs again with feedback included; if satisfied, the last actor result is returned
+
+</Steps>
+
+On every retry iteration the actor always receives:
+
+```
+Original task: <input>
+
+Previous attempt:
+<last result>
+
+Feedback:
+<reflector output>
+
+Please improve your answer based on this feedback.
+```
+
+## Stopping the loop
+
+The reflector controls the loop. How it signals "satisfied" depends on the step pattern:
+
+**React reflector** — call `finish` with key `"done"` to stop, any other key to continue:
+
+```
+finish(key="done",  value="Looks great")     → stop
+finish(key="retry", value="Missing X, Y")    → continue; "Missing X, Y" becomes feedback
+```
+
+**Oneshot reflector** — return text starting with `DONE` to stop, anything else to continue:
+
+```
+DONE                         → stop
+RETRY: <feedback>            → continue; entire text becomes feedback
+```
+
+The `max_iter` field caps the total number of act-reflect cycles (default: `4`).

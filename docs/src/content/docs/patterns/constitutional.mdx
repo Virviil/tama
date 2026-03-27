@@ -1,0 +1,92 @@
+---
+title: constitutional
+description: Generate → critique against principles → revise. Ensures output adheres to defined principles.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+`constitutional` is a three-step pipeline inspired by Constitutional AI: generate initial output, critique it against a set of principles, then revise to comply.
+
+## When to use it
+
+- Safe content generation (harmlessness, helpfulness, honesty checks)
+- Style or brand guideline compliance
+- Any task where output must adhere to a fixed set of rules
+- Structured quality enforcement
+
+## File structure
+
+```
+agents/my-constitutional/
+├── AGENT.md      ← pattern: constitutional, config
+├── critique.md   ← critique step: check against principles
+└── revise.md     ← revise step: fix violations
+```
+
+## AGENT.md
+
+```yaml
+---
+name: safe-writer
+description: Generates content that adheres to safety and style guidelines.
+version: "1.0.0"
+pattern: constitutional
+call:
+  model:
+    role: writer
+---
+
+Generate a helpful, informative response to the user's request.
+Be thorough and provide concrete examples where relevant.
+Call finish with key="done" and your response as value.
+```
+
+## critique.md
+
+```markdown
+You are a compliance reviewer. You have received a generated response.
+
+Evaluate it against these principles:
+1. **Accuracy** — no false claims or unsupported assertions
+2. **Clarity** — no jargon without explanation
+3. **Safety** — no potentially harmful instructions or content
+4. **Tone** — professional and respectful
+
+For each violation, quote the problematic text and explain the issue.
+If there are no violations, say "COMPLIANT".
+
+Call finish with key="done" and the critique (or "COMPLIANT") as value.
+```
+
+## revise.md
+
+```markdown
+You have an original response and a compliance critique.
+
+If the critique says "COMPLIANT", return the original response unchanged.
+Otherwise, revise the response to address every identified violation.
+
+Make targeted fixes — don't rewrite what's already compliant.
+
+Call finish with key="done" and the revised response as value.
+```
+
+## Scaffold
+
+```bash
+tama add constitutional my-agent
+```
+
+## How it works
+
+<Steps>
+
+1. **Generate** — `AGENT.md` body produces the initial response to the task
+
+2. **Critique** — `critique.md` evaluates the response against the defined principles and lists any violations
+
+3. **Revise** — `revise.md` receives the original task, initial response, and critique; produces a corrected version that addresses all violations
+
+</Steps>
+
+Three steps, always executed unconditionally. The revise step handles the "already compliant" case by checking the critique text.

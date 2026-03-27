@@ -1,0 +1,6 @@
+[project]
+name = "style-contest"
+entrypoint = "style-contest"
+
+[models]
+default = "anthropic:claude-sonnet-4-6"

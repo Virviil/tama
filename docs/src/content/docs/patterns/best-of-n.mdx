@@ -1,0 +1,100 @@
+---
+title: best-of-n
+description: Generate N variants in parallel, a judge picks the best one. For high-quality generation through selection.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+`best-of-n` generates N variants of a response in parallel using the same agent and prompt, then has a judge pick the best one.
+
+## When to use it
+
+- Creative tasks where quality varies between runs (headlines, taglines, ideas)
+- High-stakes generation where you want the best of multiple attempts
+- Tasks where diversity of output improves selection
+- Any situation where running the same prompt multiple times and picking the best is valuable
+
+## File structure
+
+```
+agents/my-best-of-n/
+├── AGENT.md    ← pattern: best-of-n, n, config
+└── judge.md    ← judge system prompt
+```
+
+## AGENT.md
+
+```yaml
+---
+name: headline-generator
+description: Generates the best possible headline for an article.
+version: "1.0.0"
+pattern: best-of-n
+n: 5
+call:
+  model:
+    role: writer
+    temperature: 0.9
+---
+
+Generate a single compelling, specific headline for the article.
+The headline should be accurate, engaging, and under 70 characters.
+Return only the headline — no explanation, no quotes.
+```
+
+## judge.md
+
+```markdown
+---
+call:
+  model:
+    role: thinker
+    temperature: 0.0
+---
+
+You receive N candidate headlines for the same article.
+Each is labeled with its variant number.
+
+Evaluate each headline on:
+1. **Accuracy** — does it accurately represent the article?
+2. **Engagement** — is it compelling and click-worthy?
+3. **Clarity** — is it specific and not vague?
+4. **Length** — is it under 70 characters?
+
+Select the single best headline.
+
+Call finish with key="done" and ONLY the winning headline as value (no explanation).
+```
+
+## Scaffold
+
+```bash
+tama add best-of-n my-agent
+```
+
+## How it works
+
+<Steps>
+
+1. **Generate N variants** — the `AGENT.md` body runs `n` times in parallel, each as an independent react agent; higher temperature encourages diverse outputs
+
+2. **Judge** — `judge.md` receives all `n` variants and selects the best one; returns it as the final result
+
+</Steps>
+
+## Configuring variety
+
+Use `temperature` on the AGENT.md to control how different the variants are:
+- `temperature: 1.0` — high variety, more creative divergence
+- `temperature: 0.5` — moderate variety
+- `temperature: 0.0` — all variants nearly identical (not useful for best-of-n)
+
+## N variants
+
+The `n` field controls how many variants to generate. Typical values:
+
+| n | Use case |
+|---|---------|
+| 3 | Quick selection, low cost |
+| 5 | Good balance of variety and cost |
+| 10 | Creative tasks, high quality bar |

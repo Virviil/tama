@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>tama runs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=Rethink+Sans:ital,wght@0,400..800;1,400..800&display=swap" rel="stylesheet">
+  <script type="module" crossorigin src="/app.js"></script>
+  <link rel="stylesheet" crossorigin href="/app.css">
+</head>
+<body>
+  <div id="app" x-data="app" class="layout">
+
+    <!-- ── Runs sidebar ── -->
+    <aside class="sidebar">
+      <div class="panel-hdr">runs</div>
+      <div class="runs-list">
+        <template x-if="runs.length === 0">
+          <div class="empty-msg">no runs yet — run <code>tama run</code> first</div>
+        </template>
+        <template x-for="run in runs" :key="run.trace_id">
+          <div class="run-item" :class="{ active: selectedRunId === run.trace_id }" @click="selectRun(run)">
+            <div class="run-task" x-text="run.task"></div>
+            <div class="run-meta">
+              <span :class="'status-' + run.status" x-text="run.status"></span>
+              <span x-text="run.entrypoint"></span>
+              <span x-text="run.duration_ms + 'ms'"></span>
+              <span class="muted" x-text="run.trace_id.slice(0,8)"></span>
+            </div>
+          </div>
+        </template>
+      </div>
+    </aside>
+
+    <!-- ── Agent tree ── -->
+    <aside class="tree-panel">
+      <div class="panel-hdr">trace</div>
+      <div class="tree-list">
+        <template x-if="!selectedRunId">
+          <div class="empty-msg">← select a run</div>
+        </template>
+        <template x-for="row in flatRows" :key="row.key">
+          <div class="tree-row"
+               :class="{ 'tree-selected': timeline && timeline.groupKey === row.key }"
+               :style="`padding-left: ${row.depth * 16 + 10}px`"
+               @click="selectAgent(row)">
+
+            <!-- expand toggle -->
+            <span class="tree-toggle" x-text="row.hasChildren ? (expanded[row.key] ? '▾' : '▸') : '·'"></span>
+
+            <!-- parallel indicator -->
+            <span class="parallel-mark" x-show="row.group.is_parallel" title="parallel">∥</span>
+
+            <!-- name + pattern -->
+            <span class="tree-name" x-text="row.group.name"></span>
+            <span class="tree-pattern" x-text="row.group.pattern" :style="`color: ${$patternColor(row.group.pattern)}`"></span>
+            <span class="tree-dur muted" x-text="row.dur + 'ms'"></span>
+
+            <!-- retry tabs -->
+            <template x-if="row.group.attempts.length > 1">
+              <span class="attempt-tabs" @click.stop>
+                <template x-for="(attempt, i) in row.group.attempts" :key="i">
+                  <span class="attempt-tab"
+                        :class="{ active: row.attemptIdx === i, final: i === row.group.attempts.length - 1 }"
+                        @click.stop="switchAttempt(row.key, i)"
+                        x-text="i === row.group.attempts.length - 1 ? (i+1) + '★' : (i+1)">
+                  </span>
+                </template>
+              </span>
+            </template>
+
+          </div>
+        </template>
+      </div>
+    </aside>
+
+    <!-- ── Timeline panel ── -->
+    <main class="timeline-panel" x-show="timeline" x-cloak>
+      <!-- header -->
+      <div class="panel-hdr timeline-hdr" x-show="timeline">
+        <span x-text="timeline && timeline.agentName"></span>
+        <span class="muted" x-text="timeline && ' · ' + timeline.pattern"></span>
+        <!-- attempt tabs if multiple -->
+        <template x-if="timeline && timeline.totalAttempts > 1">
+          <span class="attempt-tabs attempt-tabs-hdr" @click.stop>
+            <template x-for="i in timeline.totalAttempts" :key="i">
+              <span class="attempt-tab"
+                    :class="{ active: timeline.attemptIdx === i-1, final: i === timeline.totalAttempts }"
+                    @click.stop="switchAttemptTimeline(i-1)"
+                    x-text="i === timeline.totalAttempts ? i + '★' : i">
+              </span>
+            </template>
+          </span>
+        </template>
+        <span class="close-btn" @click="timeline = null">✕</span>
+      </div>
+
+      <!-- static: model + system prompt (same for all steps) -->
+      <div class="tl-static" x-show="timeline && timeline.model">
+        <div class="tl-static-meta">
+          <span class="badge b-model" x-text="timeline && timeline.model"></span>
+          <span class="badge b-temp" x-show="timeline && timeline.temperature != null" x-text="'t=' + (timeline && timeline.temperature)"></span>
+          <span class="badge b-in">↑ <span x-text="timeline && timeline.totalIn"></span></span>
+          <span class="badge b-out">↓ <span x-text="timeline && timeline.totalOut"></span></span>
+          <span class="badge b-dur" x-text="timeline && timeline.totalMs + 'ms'"></span>
+        </div>
+        <div class="tl-block tl-system-prompt" x-text="timeline && timeline.systemPrompt"></div>
+      </div>
+
+      <!-- events -->
+      <div class="timeline-body" x-show="timeline">
+        <template x-if="timeline && timeline.events.length === 0">
+          <div class="empty-msg">no LLM or tool calls recorded</div>
+        </template>
+
+        <template x-for="(ev, i) in (timeline ? timeline.events : [])" :key="i">
+          <div>
+
+            <!-- ── LLM step ── -->
+            <template x-if="ev.kind === 'llm'">
+              <div class="tl-step">
+                <div class="tl-step-hdr">
+                  <span class="tl-step-name" x-text="ev.step"></span>
+                  <span class="badge b-in">↑ <span x-text="ev.input_tokens"></span></span>
+                  <span class="badge b-out">↓ <span x-text="ev.output_tokens"></span></span>
+                  <span class="badge b-dur" x-text="ev.duration_ms + 'ms'"></span>
+                </div>
+                <div class="tl-block tl-response" x-show="ev.response" x-text="ev.response"></div>
+                <div class="tl-no-response" x-show="!ev.response">tool call only</div>
+              </div>
+            </template>
+
+            <!-- ── Synthetic finish (implicit — model returned plain text, runtime synthesized finish) ── -->
+            <template x-if="ev.kind === 'synthetic'">
+              <div class="tl-tool-block tl-synthetic">
+                <div class="tl-tool-block-hdr">
+                  <span class="tl-tool-name tl-synthetic-label" x-text="ev.tool_name"></span>
+                  <span class="tl-synthetic-badge">synthetic</span>
+                  <span class="tl-tool-args" x-text="$shortArgs(ev.args_json)"></span>
+                </div>
+                <div class="tl-block tl-tool-value" x-text="ev.result"></div>
+              </div>
+            </template>
+
+            <!-- ── Tool call ── -->
+            <template x-if="ev.kind === 'tool'">
+              <div>
+                <!-- finish / start: show result in a block -->
+                <template x-if="ev.tool_name === 'finish' || ev.tool_name === 'start'">
+                  <div class="tl-tool-block">
+                    <div class="tl-tool-block-hdr">
+                      <span class="tl-tool-name" x-text="ev.tool_name"></span>
+                      <span class="tl-tool-args" x-text="$shortArgs(ev.args_json)"></span>
+                    </div>
+                    <div class="tl-block tl-tool-value" x-text="ev.result"></div>
+                  </div>
+                </template>
+                <!-- other tools: compact single row -->
+                <template x-if="ev.tool_name !== 'finish' && ev.tool_name !== 'start'">
+                  <div class="tl-tool">
+                    <span class="tl-tool-name" x-text="ev.tool_name"></span>
+                    <span class="tl-tool-args" x-text="$shortArgs(ev.args_json)"></span>
+                    <span class="tl-arrow">→</span>
+                    <span class="tl-tool-result" x-text="$truncate(ev.result, 120)"></span>
+                    <span class="badge b-dur tl-tool-dur" x-show="ev.duration_ms > 0" x-text="ev.duration_ms + 'ms'"></span>
+                  </div>
+                </template>
+              </div>
+            </template>
+
+          </div>
+        </template>
+      </div>
+    </main>
+
+    <!-- placeholder when no timeline -->
+    <main class="timeline-panel timeline-empty" x-show="!timeline">
+      <div class="empty-msg" style="margin: auto">← click an agent to view its timeline</div>
+    </main>
+
+  </div>
+</body>
+</html>

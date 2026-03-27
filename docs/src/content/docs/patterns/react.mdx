@@ -1,0 +1,145 @@
+---
+title: react
+description: Tool-use loop — the fundamental building block. The LLM runs until it calls finish().
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+`react` is the fundamental execution unit in tama. It's a loop: call LLM → execute tools → call LLM → ... → `finish(key, value)`.
+
+The loop is driven by the model's tool calls. It terminates when the model calls `finish`.
+
+## When to use it
+
+- Tasks requiring external tools (web search, file access, code execution)
+- Multi-step reasoning where the model needs to check intermediate results
+- Tasks where the number of steps isn't known in advance
+- Any situation that needs more than a single LLM call
+
+## AGENT.md
+
+```yaml
+---
+name: researcher
+description: Researches topics using web search.
+version: "1.0.0"
+pattern: react
+call:
+  model:
+    role: thinker
+  uses:
+    - search-web
+    - fetch-url
+---
+
+You are a research assistant with access to web search.
+
+When given a research task:
+1. Search for relevant information using search-web
+2. Fetch full content from the most relevant URLs
+3. Synthesize findings into a comprehensive answer
+
+Call finish with key="done" and your complete findings as the value.
+```
+
+## Scaffold
+
+```bash
+tama add react my-agent
+```
+
+## How it works
+
+<Steps>
+
+1. **Receive input** — the model calls `start()` to get the assigned task
+
+2. **Reason and act** — the LLM is called with the system prompt and available tool descriptions; the model calls tools (`read_skill`, skills, etc.)
+
+3. **Tool results returned** — the runtime executes each tool call and passes results back to the model
+
+4. **Repeat** — steps 2–3 continue until the model calls `finish(key, value)`
+
+5. **Output** — `finish` terminates the loop; `key` and `value` propagate as the agent's result
+
+</Steps>
+
+## The three universal tools
+
+Every react agent always has access to:
+
+| Tool | Signature | Purpose |
+|------|-----------|---------|
+| `start` | `start() → string` | Get the assigned input |
+| `finish` | `finish(key: string, value: string)` | Complete and pass output |
+| `read_skill` | `read_skill(name: string) → string` | Load a skill's full instructions |
+
+Additional tools come from skills loaded via `read_skill`.
+
+## Skills and progressive disclosure
+
+Skills are declared in `uses:` and their descriptions are injected into the system prompt at startup. The full instructions are only loaded when the agent calls `read_skill("skill-name")`.
+
+```yaml
+call:
+  uses:
+    - search-web    # description visible at startup
+    - fetch-url     # full instructions loaded on demand
+```
+
+## The finish key
+
+The `key` in `finish(key, value)` is a routing word. In a standalone react agent it's ignored. Inside an `fsm`, it determines which state comes next.
+
+Convention: use `"done"` for success, `"error"` for failures, descriptive words for routing (`"approved"`, `"rejected"`, `"needs-revision"`).
+
+## Implicit finish
+
+If the model responds with plain text and makes no tool calls at all, the runtime treats it as an implicit `finish(key="done", value=<text>)` and exits the loop immediately.
+
+This works correctly anywhere the key is always `"done"` — standalone react agents, critic steps, reflexion actors. It is **silent data loss** in patterns that route on the key:
+
+| Pattern | Explicit `finish` required? |
+|---------|----------------------------|
+| Standalone `react` | No — implicit is fine |
+| Critic step | No — only value matters |
+| `fsm` state | **Yes** — key drives routing |
+| Scatter map phase | **Yes** — key must be `"parallel"` |
+| Reflexion reflector | **Yes** — key must be `"DONE"` to stop |
+
+In the trace viewer, an implicit finish appears as a `finish` tool call with kind `synthetic` — visually distinct from an explicit tool call made by the model.
+
+## max_iter
+
+The loop runs for at most `max_iter` iterations (default: 10). Override in frontmatter:
+
+```yaml
+max_iter: 20
+```
+
+## Example: research agent
+
+```yaml
+---
+name: deep-researcher
+description: Deep research agent with web search and URL fetching.
+version: "1.0.0"
+pattern: react
+max_iter: 15
+call:
+  model:
+    role: thinker
+    temperature: 0.3
+  uses:
+    - search-web
+    - fetch-url
+---
+
+You are a thorough research assistant. For any research task:
+1. Break the topic into 3-5 sub-questions
+2. Search for each sub-question
+3. Fetch and read the most relevant sources
+4. Synthesize into a comprehensive report with citations
+
+Call finish(key="done", value=<full report>) when complete.
+```

@@ -1,0 +1,94 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=Rethink+Sans:ital,wght@0,400..800;1,400..800&display=swap');
+
+/* ── tama accent colors — light theme ──────────────────────────────────── */
+:root[data-theme='light'],
+:root:not([data-theme='dark']) {
+  --sl-color-accent-low:  #e0f2fe;
+  --sl-color-accent:      #0ea5e9;
+  --sl-color-accent-high: #0369a1;
+  --sl-color-text-accent: #0ea5e9;
+  --sl-font: 'Rethink Sans', sans-serif;
+  --sl-font-mono: 'DM Mono', monospace;
+}
+
+/* ── tama accent colors — dark theme ───────────────────────────────────── */
+:root[data-theme='dark'] {
+  --sl-color-accent-low:  #082f49;
+  --sl-color-accent:      #38bdf8;
+  --sl-color-accent-high: #7dd3fc;
+  --sl-color-text-accent: #38bdf8;
+  --sl-font: 'Rethink Sans', sans-serif;
+  --sl-font-mono: 'DM Mono', monospace;
+}
+
+/* ── Sidebar active link ────────────────────────────────────────────────── */
+.social-icons::after { display: none !important; }
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+.actions { gap: 4px !important; }
+
+.sl-link-button.primary,
+.sl-link-button.minimal {
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  font-weight: 500 !important;
+  transition: background 0.15s ease !important;
+  padding-inline: 2.5rem !important;
+}
+
+/* Light theme buttons */
+:root[data-theme='light'] .sl-link-button.primary,
+:root:not([data-theme='dark']) .sl-link-button.primary {
+  background: #ffffff !important;
+  border: 2px solid #0ea5e9 !important;
+  color: #111827 !important;
+}
+:root[data-theme='light'] .sl-link-button.primary:hover,
+:root:not([data-theme='dark']) .sl-link-button.primary:hover { background: #f0f9ff !important; }
+
+:root[data-theme='light'] .sl-link-button.minimal,
+:root:not([data-theme='dark']) .sl-link-button.minimal {
+  background: transparent !important;
+  border: 2px solid #d946ef !important;
+  color: #111827 !important;
+}
+:root[data-theme='light'] .sl-link-button.minimal:hover,
+:root:not([data-theme='dark']) .sl-link-button.minimal:hover { background: #fdf4ff !important; }
+
+/* Dark theme buttons */
+:root[data-theme='dark'] .sl-link-button.primary {
+  background: transparent !important;
+  border: 2px solid #38bdf8 !important;
+  color: #e2e8f0 !important;
+}
+:root[data-theme='dark'] .sl-link-button.primary:hover { background: #082f49 !important; }
+
+:root[data-theme='dark'] .sl-link-button.minimal {
+  background: transparent !important;
+  border: 2px solid #d946ef !important;
+  color: #e2e8f0 !important;
+}
+:root[data-theme='dark'] .sl-link-button.minimal:hover { background: #2d0a35 !important; }
+
+/* ── Card icons — sky / fuchsia alternating ─────────────────────────────── */
+.card:nth-child(odd) .icon  { color: #0ea5e9 !important; background-color: #e0f2fe !important; border-color: #0ea5e9 !important; }
+.card:nth-child(even) .icon { color: #d946ef !important; background-color: #fdf4ff !important; border-color: #d946ef !important; }
+
+:root[data-theme='dark'] .card:nth-child(odd) .icon  { color: #38bdf8 !important; background-color: #082f49 !important; border-color: #38bdf8 !important; }
+:root[data-theme='dark'] .card:nth-child(even) .icon { color: #e879f9 !important; background-color: #1a0520 !important; border-color: #e879f9 !important; }
+
+/* ── Code blocks in dark mode — force dark background ───────────────────── */
+:root[data-theme='dark'] .expressive-code .frame,
+:root[data-theme='dark'] .expressive-code pre {
+  background: #1e2433 !important;
+}
+:root[data-theme='dark'] .expressive-code {
+  --ec-frm-edBrdCol: #374151 !important;
+}
+
+/* ── Inline code ────────────────────────────────────────────────────────── */
+:root[data-theme='light'] :not(pre) > code,
+:root:not([data-theme='dark']) :not(pre) > code {
+  background: #f3f4f6;
+  color: #0ea5e9;
+}

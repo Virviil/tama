@@ -1,0 +1,101 @@
+---
+title: oneshot
+description: The simplest pattern — a single LLM call. Input becomes the user message, AGENT.md body becomes the system prompt.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+`oneshot` is the simplest possible pattern: one LLM call, no tools, no loop.
+
+The agent's system prompt comes from the `AGENT.md` body. The input is passed directly as the user message. The LLM response is the output.
+
+## When to use it
+
+- Text transformations (summarize, translate, reformat)
+- Classification or labeling
+- Generating short content (titles, descriptions, tags)
+- Any task that needs a single focused LLM response
+
+## AGENT.md
+
+```yaml
+---
+name: summarizer
+description: Summarizes text concisely.
+version: "1.0.0"
+pattern: oneshot
+call:
+  model:
+    role: thinker
+---
+
+You are a concise summarizer. Given any text, return a clear 2-3 sentence summary.
+Focus on the key insights. Do not pad the response.
+```
+
+## Scaffold
+
+```bash
+tama add oneshot my-agent
+```
+
+## How it works
+
+<Steps>
+
+1. **Input** — passed directly as the user message
+
+2. **Single LLM call** — system prompt is the `AGENT.md` body; no tools available
+
+3. **Response returned** — LLM output is the agent's result with `key="done"`
+
+</Steps>
+
+No `start()`, no `finish()`, no tools. The runtime handles everything.
+
+## Output
+
+The output key is always `"result"`. When used as a step inside an `fsm`, the FSM transitions unconditionally from `oneshot` agents (since they always produce the same key).
+
+## Step file variant
+
+When used as a step inside multi-step patterns (`critic`, `constitutional`, `reflexion`, etc.), each step file defaults to `oneshot` — a single LLM call with the step file's body as the system prompt. Add `pattern: react` frontmatter to run a step as a react loop instead.
+
+## Configuration
+
+```yaml
+call:
+  model:
+    role: thinker          # use role-based model selection
+    temperature: 0.0       # deterministic output
+    max_tokens: 512        # short response
+```
+
+## Example: essay title generator
+
+```yaml
+---
+name: title-generator
+description: Generates a compelling title for an essay.
+version: "1.0.0"
+pattern: oneshot
+call:
+  model:
+    role: writer
+    temperature: 0.9
+---
+
+Generate a single compelling, specific title for the following essay.
+Return only the title, no explanation, no quotes.
+```
+
+Run:
+
+```bash
+tama run "Rust's borrow checker enforces memory safety at compile time..."
+```
+
+Output:
+```
+The Compile-Time Memory Safety Guarantee: How Rust's Borrow Checker Changed Systems Programming
+```

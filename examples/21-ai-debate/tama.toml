@@ -1,0 +1,8 @@
+[project]
+name = "ai-debate"
+entrypoint = "ai-debate"
+
+[models]
+thinker = "anthropic:claude-sonnet-4-6"
+worker  = "anthropic:claude-sonnet-4-6"
+default = "anthropic:claude-haiku-4-5-20251001"

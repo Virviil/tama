@@ -1,0 +1,49 @@
+[package]
+name = "tama"
+version = "0.0.1"
+edition = "2021"
+description = "Multi-agent AI framework — build, run, and trace agent pipelines from the command line"
+license = "Elastic-2.0"
+repository = "https://github.com/mlnja/tama"
+homepage = "https://tama.mlops.ninja"
+keywords = ["ai", "agents", "llm", "cli", "multiagent"]
+categories = ["command-line-utilities"]
+include = [
+    "src/**/*",
+    "web/dist/**/*",
+    "build.rs",
+    "Cargo.toml",
+    "README.md",
+    "LICENSE",
+]
+
+[lib]
+name = "tama"
+path = "src/lib.rs"
+
+[[bin]]
+name = "tama"
+path = "src/tama.rs"
+
+[[bin]]
+name = "tamad"
+path = "src/tamad.rs"
+
+[dependencies]
+clap       = { version = "4", features = ["derive"] }
+serde      = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+anyhow     = "1"
+walkdir    = "2"
+genai      = "0.5.3"
+tokio      = { version = "1", features = ["macros", "rt-multi-thread", "process"] }
+serde_json = "1"
+toml       = "0.8"
+reqwest    = { version = "0.13", features = ["rustls", "json", "blocking"], default-features = false }
+tempfile   = "3"
+futures    = "0.3"
+uuid       = { version = "1", features = ["v4"] }
+duckdb     = { version = "1", features = ["bundled"] }
+rust-embed = { version = "8", features = ["include-exclude"] }
+sha2       = { version = "0.10", default-features = false, features = ["std"] }
+hex        = "0.4"

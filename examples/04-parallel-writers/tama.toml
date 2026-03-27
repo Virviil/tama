@@ -1,0 +1,6 @@
+[project]
+name = "parallel-writers"
+entrypoint = "contest"
+
+[models]
+thinker = "anthropic:claude-haiku-4-5-20251001"

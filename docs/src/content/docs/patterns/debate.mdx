@@ -1,0 +1,122 @@
+---
+title: debate
+description: Multiple agents argue positions, a judge synthesizes. For balanced analysis and well-rounded decisions.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+`debate` runs multiple agents arguing different positions, then has a judge synthesize a final answer from all perspectives.
+
+## When to use it
+
+- Decisions requiring consideration of opposing viewpoints
+- Policy or strategy analysis (pros/cons, risks/benefits)
+- Research where multiple interpretations exist
+- Any task where groupthink is a risk
+
+## AGENT.md
+
+```yaml
+---
+name: investment-debate
+description: Debates an investment decision from bull and bear perspectives.
+version: "1.0.0"
+pattern: debate
+agents:
+  - bull-analyst
+  - bear-analyst
+rounds: 1
+judge: synthesis-analyst
+call:
+  model:
+    role: thinker
+---
+```
+
+No body needed — debate delegates to the listed agents.
+
+## The position agents
+
+Each agent in `agents:` is a full named agent. They receive the original input and argue their assigned position:
+
+```yaml
+# agents/bull-analyst/AGENT.md
+---
+name: bull-analyst
+description: Argues the bullish case for an investment.
+version: "1.0.0"
+pattern: react
+call:
+  model:
+    role: thinker
+  uses:
+    - search-web
+---
+
+You are a bullish investment analyst. Given an investment opportunity:
+1. Research positive signals and growth catalysts
+2. Build the strongest possible case FOR the investment
+3. Acknowledge risks only briefly
+
+Call finish with key="done" and your bullish thesis as value.
+```
+
+## The judge agent
+
+```yaml
+# agents/synthesis-analyst/AGENT.md
+---
+name: synthesis-analyst
+description: Synthesizes multiple investment analyses into a recommendation.
+version: "1.0.0"
+pattern: oneshot
+call:
+  model:
+    role: thinker
+---
+
+You receive arguments from multiple analysts with different perspectives.
+
+Synthesize all viewpoints into a balanced, well-reasoned final recommendation.
+Weigh the arguments, acknowledge the strongest points on each side, and provide a clear conclusion.
+```
+
+## Scaffold
+
+```bash
+tama add debate my-agent
+```
+
+## How it works
+
+<Steps>
+
+1. **Round 1** — all position agents receive the original task and run concurrently, each producing an independent argument
+
+2. **Subsequent rounds** — each position agent receives all arguments from the previous round and can rebut, strengthen, or concede points
+
+3. **Judge** — after all rounds complete, the judge agent receives the full debate transcript and synthesizes a final recommendation
+
+</Steps>
+
+## Configuration
+
+| Field | Description |
+|-------|-------------|
+| `agents` | List of agent names to include in the debate |
+| `rounds` | Number of debate rounds (default: 1) |
+| `judge` | Agent name for the synthesis step |
+
+## Two vs many agents
+
+The minimum is two agents (a classic pro/con structure), but you can add more:
+
+```yaml
+agents:
+  - optimist
+  - pessimist
+  - realist
+  - contrarian
+rounds: 2
+judge: moderator
+```

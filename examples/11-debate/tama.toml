@@ -1,0 +1,6 @@
+[project]
+name = "tech-debate"
+entrypoint = "debate"
+
+[models]
+default = "anthropic:claude-haiku-4-5-20251001"

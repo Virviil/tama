@@ -1,0 +1,143 @@
+---
+title: Writing a Skill
+description: Step-by-step guide to creating a tama skill.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+<Steps>
+
+1. **Scaffold the skill**
+
+   ```bash
+   tama add skill my-tool
+   ```
+
+   This creates:
+   ```
+   skills/my-tool/
+   └── SKILL.md
+   ```
+
+2. **Write the frontmatter**
+
+   Open `skills/my-tool/SKILL.md` and fill in the required fields:
+
+   ```markdown
+   ---
+   name: my-tool
+   description: What this tool does and when to use it. Keep it under 200 characters.
+   ---
+   ```
+
+   The `description` is what agents see before deciding to use the skill. Make it specific and actionable.
+
+3. **Write the instructions**
+
+   The body is the full instructions the agent receives when it calls `read_skill("my-tool")`:
+
+   ```markdown
+   ---
+   name: my-tool
+   description: Fetch and parse JSON from an API endpoint.
+   ---
+
+   Use bash to run:
+   ```bash
+   curl -s "$URL" | python3 -c "import sys, json; data=json.load(sys.stdin); print(json.dumps(data, indent=2))"
+   ```
+
+   The URL should be the full endpoint including query parameters.
+
+   ## Error handling
+   If the request fails, retry once. If it fails again, return the error message.
+
+   ## Example
+   Input: "https://api.example.com/data?id=123"
+   Output: parsed JSON object
+   ```
+
+4. **Add dependencies if needed**
+
+   If your skill requires system packages or Python libraries:
+
+   ```markdown
+   ---
+   name: pdf-reader
+   description: Extract text from PDF files.
+   tama:
+     depends:
+       apt:
+         - poppler-utils
+       bins:
+         - pdftotext
+   ---
+
+   Use bash: `pdftotext "$FILE" -` to extract text from the PDF at the given path.
+   ```
+
+5. **Use it in an agent**
+
+   Add the skill to an agent's `uses:` list:
+
+   ```yaml
+   # agents/my-agent/AGENT.md
+   call:
+     uses:
+       - my-tool
+   ```
+
+6. **Test it**
+
+   Run your agent and check that it loads and uses the skill correctly:
+
+   ```bash
+   tama run "fetch data from https://api.example.com/data?id=123"
+   ```
+
+</Steps>
+
+## Tips for good skills
+
+### Write the description for the model, not for humans
+
+The description is injected into the LLM's context. It should tell the model:
+- What the tool does
+- **When to use it** (this is the most important part)
+- Any important limitations
+
+```yaml
+# Bad: too vague
+description: Web search tool.
+
+# Good: tells the model when and how to use it
+description: Search the web using DuckDuckGo. Use for finding current information, recent events, or any topic not in training data.
+```
+
+### Keep Level 1 short, Level 2 complete
+
+The description (Level 1) should be ~100–200 characters. The body (Level 2) should be thorough — include examples, edge cases, error handling. Agents only pay the token cost for Level 2 when they actually use the skill.
+
+### Use examples generously
+
+LLMs follow examples. Include input/output pairs in the skill body:
+
+```markdown
+## Examples
+
+Input: search for "Rust 2025 trends"
+→ Run: `duckduckgo-search "Rust programming language trends 2025"`
+→ Return: top 5 results with title, URL, snippet
+
+Input: search for "how to boil an egg"
+→ Run: `duckduckgo-search "how to boil an egg perfectly"`
+→ Return: top 3 results
+```
+
+### Test with `tama lint`
+
+```bash
+tama lint
+```
+
+Checks that all skills referenced in agent `uses:` lists actually exist.

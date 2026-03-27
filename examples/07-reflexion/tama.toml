@@ -1,0 +1,6 @@
+[project]
+name = "puzzle-solver"
+entrypoint = "puzzle-solver"
+
+[models]
+default = "ollama:qwen3.5:9b"

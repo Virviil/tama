@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>tama agent graph</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { display: flex; height: 100vh; font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
+  #cy { flex: 1; }
+  #detail {
+    width: 340px; min-width: 340px; overflow-y: auto; padding: 20px;
+    background: #1e293b; border-left: 1px solid #334155;
+  }
+  #detail .placeholder { color: #64748b; font-style: italic; margin-top: 40%; text-align: center; }
+  #detail h2 { font-size: 1.2rem; margin-bottom: 8px; color: #f1f5f9; }
+  #detail h3 { font-size: 0.8rem; margin: 14px 0 5px; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; }
+  #detail p { font-size: 0.9rem; margin-bottom: 8px; line-height: 1.5; color: #cbd5e1; }
+  #detail ul { margin: 0 0 8px 16px; }
+  #detail li { font-size: 0.88rem; color: #cbd5e1; line-height: 1.6; }
+  #detail small { font-size: 0.78rem; color: #64748b; }
+  #detail pre {
+    font-size: 0.78rem; background: #0f172a; border: 1px solid #334155;
+    border-radius: 6px; padding: 10px; white-space: pre-wrap; word-break: break-word;
+    color: #94a3b8; max-height: 220px; overflow-y: auto;
+  }
+  #detail code { background: #0f172a; padding: 2px 5px; border-radius: 4px; font-size: 0.83em; color: #7dd3fc; }
+  #detail .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    font-size: 0.72rem; font-weight: 700; background: #334155; color: #94a3b8;
+    margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  #detail table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 6px; }
+  #detail th { text-align: left; padding: 6px 8px; background: #0f172a; color: #64748b; font-weight: 600; }
+  #detail td { padding: 5px 8px; border-top: 1px solid #334155; color: #cbd5e1; }
+
+  #legend {
+    position: absolute; bottom: 16px; left: 16px;
+    background: #1e293b; border: 1px solid #334155; border-radius: 8px;
+    padding: 10px 14px; display: flex; flex-direction: column; gap: 6px;
+    font-size: 0.78rem; color: #94a3b8;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; pointer-events: none; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+  #btn-fit {
+    margin-top: 4px; padding: 6px 10px; border-radius: 6px;
+    background: #0f172a; border: 1px solid #475569;
+    font-size: 0.78rem; font-family: system-ui, sans-serif;
+    color: #94a3b8; cursor: pointer; transition: background 0.15s, color 0.15s;
+  }
+  #btn-fit:hover { background: #334155; color: #e2e8f0; }
+
+  #hint {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    background: #1e293b99; border: 1px solid #334155; border-radius: 20px;
+    padding: 6px 16px; font-size: 0.76rem; color: #64748b; pointer-events: none;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<div id="cy"></div>
+<div id="hint">Click an agent to reveal its skills · click a skill to reveal tools · click canvas to collapse</div>
+<div id="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>agent</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#10b981;border-radius:50%"></div>skill (click agent)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f43f5e;border-radius:50%;width:10px;height:10px"></div>tool (click skill)</div>
+  <button id="btn-fit">Show all</button>
+</div>
+<div id="detail"><p class="placeholder">Click a node to see details</p></div>
+<script>
+const GRAPH_DATA = {"edges":[{"label":"worker","source":"deep-research","target":"research-angle"},{"label":"uses","source":"deep-research","target":"skill:search-web"},{"label":"uses","source":"research-angle","target":"skill:search-web"},{"label":"tool","source":"skill:search-web","target":"tool:http_get"},{"label":"tool","source":"skill:search-web","target":"tool:write_file"}],"nodes":[{"color":"#8b5cf6","detail_html":"<h2>deep-research</h2><div class=\"badge\">scatter</div><p>Multi-angle deep research using parallel workers. Decomposes topic into angles, researches each in parallel, synthesizes a structured report.</p><h3>System Prompt</h3><pre>You are a deep research coordinator. Your job is to orchestrate parallel research across multiple angles of a topic.\n\n## Process\n\n1. **Decompose** the topic into 4-6 distinct research angles (e.g. history, key concepts, current state, use cases, criticism, future outlook — adapt as needed).\n2. **Call `parallel_run`** with the list of angle queries. Each query should be a self-contained research task.\n3. **Receive** the combined research from all angles.\n4. **Write the final report** to `report.m…</pre><p>Worker: <code>research-angle</code></p><h3>Skills</h3><ul><li><code>search-web</code> — Search the web using DuckDuckGo. Use when you need to find current information, facts, news, or any topic online. No API key required.<br><small>tools: http_get, write_file</small></li></ul>","id":"deep-research","is_root":true,"label":"deep-research\n(scatter)","node_type":"agent"},{"color":"#3b82f6","detail_html":"<h2>research-angle</h2><div class=\"badge\">react</div><p>Researches one specific angle or question about a topic using web search.</p><h3>System Prompt</h3><pre>You are a focused research specialist. Given a specific research question or angle, you search the web and produce a concise, well-sourced summary.\n\n## Process\n\n1. Identify 2-3 targeted search queries for the given question.\n2. Search using the search-web skill.\n3. Follow the most relevant links to get details.\n4. Synthesize your findings into a structured summary with sources.\n\n## Output format\n\nWrite 2-4 paragraphs covering:\n- Key facts and findings\n- Important context or nuance\n- Any caveats …</pre><h3>Skills</h3><ul><li><code>search-web</code> — Search the web using DuckDuckGo. Use when you need to find current information, facts, news, or any topic online. No API key required.<br><small>tools: http_get, write_file</small></li></ul>","id":"research-angle","is_root":false,"label":"research-angle\n(react)","node_type":"agent"},{"color":"#10b981","detail_html":"<h2>search-web</h2><div class=\"badge\">skill</div><p>Search the web using DuckDuckGo. Use when you need to find current information, facts, news, or any topic online. No API key required.</p><h3>Tools</h3><ul><li><code>http_get</code></li><li><code>write_file</code></li></ul><h3>Used by</h3><ul><li><code>deep-research</code></li><li><code>research-angle</code></li></ul>","id":"skill:search-web","is_root":false,"label":"search-web\n(skill)","node_type":"skill"},{"color":"#f43f5e","detail_html":"<h2>http_get</h2><div class=\"badge\">tool</div><h3>Used by skills</h3><ul><li><code>search-web</code></li></ul>","id":"tool:http_get","is_root":false,"label":"http_get","node_type":"tool"},{"color":"#f43f5e","detail_html":"<h2>write_file</h2><div class=\"badge\">tool</div><h3>Used by skills</h3><ul><li><code>search-web</code></li></ul>","id":"tool:write_file","is_root":false,"label":"write_file","node_type":"tool"}]};
+
+const cy = cytoscape({
+  container: document.getElementById('cy'),
+  elements: {
+    nodes: GRAPH_DATA.nodes.map(n => ({ data: n })),
+    edges: GRAPH_DATA.edges.map(e => ({ data: { source: e.source, target: e.target, label: e.label } }))
+  },
+  layout: { name: 'preset' },
+  autoungrabify: true,
+  style: [
+    {
+      selector: 'node[node_type = "agent"]',
+      style: {
+        shape: 'roundrectangle',
+        'background-color': 'data(color)',
+        label: 'data(label)',
+        color: '#ffffff',
+        'text-valign': 'center', 'text-halign': 'center',
+        'text-wrap': 'wrap', 'text-max-width': '140px',
+        'font-size': '13px', 'font-family': 'system-ui, sans-serif',
+        width: 160, height: 68,
+        'border-width': 2, 'border-color': 'data(color)', 'border-opacity': 0.5,
+      }
+    },
+    {
+      selector: 'node[node_type = "agent"][?is_root]',
+      style: {
+        width: 180, height: 76,
+        'font-size': '14px', 'font-weight': 'bold',
+        'border-width': 3, 'border-color': '#ffffff', 'border-opacity': 0.9,
+      }
+    },
+    {
+      selector: 'node[node_type = "skill"]',
+      style: {
+        shape: 'hexagon',
+        'background-color': '#10b981',
+        label: 'data(label)',
+        color: '#ffffff',
+        'text-valign': 'center', 'text-halign': 'center',
+        'text-wrap': 'wrap', 'text-max-width': '80px',
+        'font-size': '10px', 'font-family': 'system-ui, sans-serif',
+        width: 90, height: 44,
+        'border-width': 1.5, 'border-color': '#34d399', 'border-opacity': 0.7,
+      }
+    },
+    {
+      selector: 'node[node_type = "tool"]',
+      style: {
+        shape: 'ellipse',
+        'background-color': '#f43f5e',
+        label: 'data(label)',
+        color: '#ffffff',
+        'text-valign': 'center', 'text-halign': 'center',
+        'font-size': '9px', 'font-family': 'system-ui, sans-serif',
+        width: 72, height: 28,
+        'border-width': 1, 'border-color': '#fb7185', 'border-opacity': 0.6,
+      }
+    },
+    {
+      selector: 'node:selected',
+      style: {
+        'border-color': '#ffffff', 'border-width': 3, 'border-opacity': 1,
+        'overlay-color': '#ffffff', 'overlay-opacity': 0.08,
+      }
+    },
+    {
+      selector: 'edge[label != "uses"][label != "tool"]',
+      style: {
+        width: 2, 'line-color': '#475569',
+        'target-arrow-color': '#475569', 'target-arrow-shape': 'triangle',
+        'curve-style': 'bezier',
+        label: 'data(label)', 'font-size': '10px', color: '#94a3b8',
+        'text-background-color': '#1e293b', 'text-background-opacity': 1,
+        'text-background-padding': '3px',
+      }
+    },
+    {
+      selector: 'edge[label = "uses"]',
+      style: {
+        width: 1.5, 'line-color': '#34d399', 'line-style': 'dashed',
+        'target-arrow-color': '#34d399', 'target-arrow-shape': 'triangle',
+        'curve-style': 'bezier',
+        label: 'uses', 'font-size': '9px', color: '#34d399',
+        'text-background-color': '#0f172a', 'text-background-opacity': 0.8,
+        'text-background-padding': '2px',
+      }
+    },
+    {
+      selector: 'edge[label = "tool"]',
+      style: {
+        width: 1, 'line-color': '#fb7185', 'line-style': 'dashed',
+        'target-arrow-color': '#fb7185', 'target-arrow-shape': 'triangle',
+        'curve-style': 'bezier',
+        label: 'tool', 'font-size': '9px', color: '#fb7185',
+        'text-background-color': '#0f172a', 'text-background-opacity': 0.8,
+        'text-background-padding': '2px',
+      }
+    },
+  ]
+});
+
+// --- initial layout: agents only ---
+const agentOnlyElements = cy.nodes('[node_type = "agent"]').union(
+  cy.edges().filter(e => e.data('label') !== 'uses' && e.data('label') !== 'tool')
+);
+const root = cy.nodes('[node_type = "agent"]').filter(n => n.data('is_root'));
+agentOnlyElements.layout({
+  name: 'breadthfirst', directed: true, padding: 80, spacingFactor: 2.0,
+  roots: root.length ? root : undefined,
+}).run();
+
+// hide skills/tools after layout so they don't affect positioning
+cy.nodes('[node_type = "skill"], [node_type = "tool"]').style('display', 'none');
+cy.edges('[label = "uses"], [label = "tool"]').style('display', 'none');
+
+// --- helpers ---
+function collapseAll() {
+  cy.nodes('[node_type = "skill"], [node_type = "tool"]').style('display', 'none');
+  cy.edges('[label = "uses"], [label = "tool"]').style('display', 'none');
+  cy.elements().style('opacity', 1);
+}
+
+function focusNode(node) {
+  cy.elements(':visible').style('opacity', 0.15);
+  node.style('opacity', 1);
+}
+
+function orbitAround(center, neighbors, radius, startAngle) {
+  if (!neighbors || neighbors.length === 0) return;
+  const pos = center.position();
+  const n = neighbors.length;
+  neighbors.forEach((nb, i) => {
+    const angle = startAngle + (2 * Math.PI * i / n);
+    const tx = pos.x + radius * Math.cos(angle);
+    const ty = pos.y + radius * Math.sin(angle);
+    nb.position(pos);
+    nb.style({ display: 'element', opacity: 0 });
+    nb.animate(
+      { position: { x: tx, y: ty }, style: { opacity: 1 } },
+      { duration: 260, easing: 'ease-out-cubic' }
+    );
+  });
+}
+
+// Skills start directly LEFT or RIGHT — whichever side has fewer other agents.
+// angle reference: -PI/2=top  0=right  PI/2=bottom  PI=left  (Cytoscape Y grows downward)
+function skillStartAngle(centerNode) {
+  const pos = centerNode.position();
+  const others = cy.nodes('[node_type = "agent"]').not(centerNode).filter(':visible');
+  if (others.length === 0) return Math.PI; // default left
+  let sumX = 0;
+  others.forEach(n => sumX += n.position().x);
+  const avgX = sumX / others.length;
+  // Other agents mostly to the right → skills go left; mostly to the left → skills go right
+  return avgX > pos.x ? Math.PI : 0;
+}
+
+// Tools start from top or bottom, whichever side has fewer visible nodes.
+function toolStartAngle(skillNode) {
+  const pos = skillNode.position();
+  const visible = cy.elements(':visible').nodes().not(skillNode);
+  const above = visible.filter(n => n.position().y < pos.y).length;
+  const below = visible.filter(n => n.position().y > pos.y).length;
+  return above > below ? Math.PI / 2 : -Math.PI / 2;
+}
+
+// --- event handlers ---
+function smoothCenter(node) {
+  cy.animate({ center: { eles: node } }, { duration: 380, easing: 'ease-in-out-cubic' });
+}
+
+cy.on('tap', 'node[node_type = "agent"]', function(evt) {
+  const node = evt.target;
+  collapseAll();
+  focusNode(node);
+  smoothCenter(node);
+  const skillEdges = node.connectedEdges().filter(
+    e => e.data('label') === 'uses' && e.source().id() === node.id()
+  );
+  orbitAround(node, skillEdges.targets(), 220, skillStartAngle(node));
+  skillEdges.style('display', 'element');
+  document.getElementById('detail').innerHTML = node.data('detail_html');
+});
+
+cy.on('tap', 'node[node_type = "skill"]', function(evt) {
+  const node = evt.target;
+  cy.nodes('[node_type = "tool"]').style('display', 'none');
+  cy.edges('[label = "tool"]').style('display', 'none');
+  focusNode(node);
+  smoothCenter(node);
+  const toolEdges = node.connectedEdges().filter(
+    e => e.data('label') === 'tool' && e.source().id() === node.id()
+  );
+  orbitAround(node, toolEdges.targets(), 140, toolStartAngle(node));
+  toolEdges.style('display', 'element');
+  document.getElementById('detail').innerHTML = node.data('detail_html');
+});
+
+cy.on('tap', 'node[node_type = "tool"]', function(evt) {
+  focusNode(evt.target);
+  smoothCenter(evt.target);
+  document.getElementById('detail').innerHTML = evt.target.data('detail_html');
+});
+
+cy.on('tap', function(evt) {
+  if (evt.target === cy) {
+    collapseAll();
+    document.getElementById('detail').innerHTML = '<p class="placeholder">Click a node to see details</p>';
+  }
+});
+
+document.getElementById('btn-fit').addEventListener('click', function() {
+  collapseAll();
+  document.getElementById('detail').innerHTML = '<p class="placeholder">Click a node to see details</p>';
+  cy.animate({ fit: { eles: cy.nodes('[node_type = "agent"]'), padding: 80 } }, { duration: 400, easing: 'ease-in-out-cubic' });
+});
+</script>
+</body>
+</html>

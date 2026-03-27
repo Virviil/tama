@@ -1,0 +1,108 @@
+---
+title: chain-of-verification
+description: Generate → extract claims → verify each claim → revise. Reduces hallucinations through structured fact-checking.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+`chain-of-verification` reduces hallucinations by explicitly breaking out the verification step: generate a response, extract individual claims, verify each claim independently, then revise with corrections.
+
+## When to use it
+
+- Factual question answering where accuracy is critical
+- Research summaries that will be cited
+- Any task where the LLM might confidently hallucinate specific facts
+- Legal, medical, or technical domains with high accuracy requirements
+
+## File structure
+
+```
+agents/my-cov/
+├── AGENT.md    ← pattern: chain-of-verification, config
+├── verify.md   ← extract verifiable claims
+├── check.md    ← verify each claim
+└── revise.md   ← revise with corrections
+```
+
+## AGENT.md
+
+```yaml
+---
+name: fact-checker
+description: Answers questions with verified facts.
+version: "1.0.0"
+pattern: chain-of-verification
+call:
+  model:
+    role: thinker
+---
+
+Answer the question comprehensively. Include specific facts, dates, names, and statistics where relevant.
+
+Call finish with key="done" and your answer as value.
+```
+
+## verify.md
+
+```markdown
+You have a generated response. Extract all verifiable factual claims.
+
+For each claim, output it as a question that can be independently verified.
+Format: one question per line, numbered.
+
+Example: "The Eiffel Tower was built in 1889" → "Was the Eiffel Tower built in 1889?"
+
+Call finish with key="done" and the numbered list of verification questions as value.
+```
+
+## check.md
+
+```markdown
+---
+call:
+  uses:
+    - search-web
+---
+
+You have a list of factual claims to verify, expressed as questions.
+
+For each question:
+1. Search for authoritative sources
+2. Mark the claim as VERIFIED, INCORRECT (with the correct fact), or UNVERIFIABLE
+
+Format your response as a numbered list matching the input questions.
+
+Call finish with key="done" and the verification results as value.
+```
+
+## revise.md
+
+```markdown
+You have the original response and a set of fact-check results.
+
+If all claims are VERIFIED, return the original response unchanged.
+Otherwise, revise the response to correct all INCORRECT claims.
+Remove or qualify UNVERIFIABLE claims.
+
+Call finish with key="done" and the fact-checked response as value.
+```
+
+## Scaffold
+
+```bash
+tama add chain-of-verification my-agent
+```
+
+## How it works
+
+<Steps>
+
+1. **Generate** — `AGENT.md` body produces an initial response (may use tools like `search-web`)
+
+2. **Extract claims** — `verify.md` reads the response and outputs a list of independently verifiable questions
+
+3. **Check each claim** — `check.md` runs once per claim; each check can use tools to look up the answer
+
+4. **Revise** — `revise.md` receives the original response and all verification results; corrects inaccuracies and flags unverifiable claims
+
+</Steps>

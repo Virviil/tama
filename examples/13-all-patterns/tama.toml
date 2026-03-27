@@ -1,0 +1,6 @@
+[project]
+name = "all-patterns"
+entrypoint = "pipeline"
+
+[models]
+default = "anthropic:claude-haiku-4-5-20251001"

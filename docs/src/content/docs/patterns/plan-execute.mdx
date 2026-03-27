@@ -1,0 +1,130 @@
+---
+title: plan-execute
+description: Plan → execute steps → verify → loop. For complex tasks that benefit from upfront planning and step-by-step execution.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+`plan-execute` separates thinking from doing: first create a structured plan, then execute each step, then verify the result. If verification fails, the loop repeats.
+
+## When to use it
+
+- Complex tasks that benefit from upfront planning
+- Multi-step workflows with verifiable outcomes
+- Tasks where the execution order matters
+- Code generation and testing loops
+
+## File structure
+
+```
+agents/my-plan-execute/
+├── AGENT.md    ← pattern: plan-execute, config
+├── execute.md  ← execute one step from the plan
+└── verify.md   ← verify the current result
+```
+
+## AGENT.md
+
+```yaml
+---
+name: project-builder
+description: Plans and executes a multi-step project.
+version: "1.0.0"
+pattern: plan-execute
+max_iter: 5
+call:
+  model:
+    role: thinker
+---
+
+You are a project planner. Given a task, create a detailed execution plan.
+
+Output a JSON array of steps:
+[
+  {"step": 1, "action": "...", "expected_output": "..."},
+  {"step": 2, "action": "...", "expected_output": "..."}
+]
+
+Call finish with key="done" and the JSON plan as value.
+```
+
+## execute.md
+
+```markdown
+---
+call:
+  model:
+    role: thinker
+  uses:
+    - search-web
+---
+
+You receive a plan and the current execution state.
+
+Execute the next pending step. Record what you did and what you produced.
+
+Update the plan state to mark the step as complete.
+
+Call finish with key="done" and the updated execution state as value.
+```
+
+## verify.md
+
+**React verifier** (routing via `finish` key — recommended):
+
+```markdown
+---
+pattern: react
+---
+
+You receive the completed execution state.
+
+Check:
+1. All steps were executed
+2. Each step's output matches its expected output
+3. The overall goal is achieved
+
+If everything is complete and correct, call finish(key="done", value=<summary>).
+If steps need to be retried or the plan needs adjustment, call finish(key="retry", value=<feedback>).
+```
+
+**Oneshot verifier** (routing via value text):
+
+```markdown
+You receive the completed execution state. Check that all steps succeeded and the goal is met.
+
+If complete, respond with: DONE: <summary>
+If not, respond with: RETRY: <what needs to change>
+```
+
+## Scaffold
+
+```bash
+tama add plan-execute my-agent
+```
+
+## How it works
+
+<Steps>
+
+1. **Plan** — `AGENT.md` body analyses the task and produces a JSON step list
+
+2. **Execute** — `execute.md` runs once per step in sequence; each execution receives the task, full plan, current step, and previous results
+
+3. **Verify** — `verify.md` receives the full execution context and decides: satisfied (stop) or retry (loop back with feedback)
+
+</Steps>
+
+## Stopping the loop
+
+The verify step controls the loop. How it signals "done" depends on the step pattern:
+
+**React verifier** — route via `finish` key:
+- `finish(key="done", ...)` — complete, return result
+- Any other key (e.g. `"retry"`) — loop back; value becomes feedback
+
+**Oneshot verifier** — route via value text:
+- Value starts with `DONE` — complete
+- Anything else — loop back; entire text becomes feedback
+
+The `max_iter` field caps the total number of plan-execute cycles (default: `3`).

@@ -1,0 +1,76 @@
+---
+title: tama 玉
+description: Markdown-native AI agent orchestration. Write agents as .md files. Ship to production with one command.
+template: splash
+hero:
+  tagline: Agent orchestration that stays out of your way.
+  image:
+    file: ../../assets/logo.svg
+  actions:
+    - text: Get Started
+      link: /getting-started/quickstart
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/your-org/tama
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Why tama?
+
+You write agents as `.md` files. `tama run` runs them. `tama brew` ships them.
+
+No frameworks. No orchestration runtime to manage. No Python glue.
+
+<CardGrid stagger>
+  <Card title="13 built-in patterns" icon="puzzle">
+    From a single LLM call (`oneshot`) to multi-agent debates and plan-execute loops. Declare the pattern — tama implements it.
+  </Card>
+  <Card title="Full observability" icon="magnifier">
+    Every agent step, every LLM call, every artifact traced to DuckDB. Diff runs, replay with identical input, debug interactively.
+  </Card>
+  <Card title="Skills as Markdown" icon="document">
+    Tools are `.md` files following the Anthropic Agent Skills spec. Human-readable, git-diffable, composable.
+  </Card>
+  <Card title="Lean production deploys" icon="rocket">
+    `tama brew` compiles your agents into a distroless Docker image (~8MB). One command from laptop to cloud.
+  </Card>
+</CardGrid>
+
+## At a glance
+
+```bash
+# Scaffold
+tama init my-project
+cd my-project
+tama add react my-agent
+tama add skill search-web
+
+# Iterate
+ANTHROPIC_API_KEY=sk-... tama run "research fusion energy trends"
+
+# Ship
+tama brew
+docker push my-project:latest
+```
+
+```yaml
+# agents/my-agent/AGENT.md
+---
+name: my-agent
+description: Research agent with web search.
+version: "1.0.0"
+pattern: react
+call:
+  model:
+    role: thinker
+  uses:
+    - search-web
+---
+
+You are a research assistant. Use `search-web` to find information.
+When done, call finish with key="done" and a comprehensive summary.
+```

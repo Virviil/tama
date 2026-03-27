@@ -1,0 +1,145 @@
+---
+title: scatter
+description: Dynamic map-reduce — the map phase decides what to fan out, parallel workers process each item, reduce synthesizes results.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+`scatter` is a three-phase map-reduce pattern: the map phase decides what to process in parallel, workers handle each item concurrently, and the reduce step synthesizes the results.
+
+## When to use it
+
+- Research across multiple sources or angles simultaneously
+- Batch processing where item count is determined at runtime
+- Tasks that can be decomposed into independent parallel subtasks
+
+## AGENT.md
+
+```yaml
+---
+name: deep-research
+description: Researches a topic from multiple angles in parallel.
+version: "1.0.0"
+pattern: scatter
+worker: research-angle
+call:
+  model:
+    role: thinker
+  uses:
+    - search-web
+---
+
+You are a research coordinator. Given a topic:
+1. Identify 3-5 distinct research angles (e.g., technical, economic, historical, social)
+2. Call finish with key="parallel" and value as a JSON array of strings, one per angle
+
+Example:
+finish(key="parallel", value='["technical feasibility", "economic impact", "regulatory landscape"]')
+```
+
+### `reduce.md`
+
+```markdown
+---
+call:
+  model:
+    role: thinker
+---
+
+You have received research from multiple parallel workers covering different angles.
+Synthesize all findings into a comprehensive, well-structured report.
+
+Integrate the perspectives, resolve any contradictions, and present unified conclusions.
+Call finish with key="done" and the full synthesized report.
+```
+
+## Required files
+
+- `reduce.md` — system prompt for the reduce step
+
+## Scaffold
+
+```bash
+tama add scatter my-agent
+```
+
+## How it works
+
+<Steps>
+
+1. **Map** — the agent reads the task and decides what to fan out
+
+   ```
+   start() → "research quantum computing breakthroughs"
+   ```
+
+   The map agent reasons about the topic and calls:
+
+   ```
+   finish(key="parallel", value='["hardware", "algorithms", "applications"]')
+   ```
+
+2. **Parallel workers** — one worker runs per item, all concurrently
+
+   ```
+   worker("hardware")      ─┐
+   worker("algorithms")    ─┼─ run in parallel
+   worker("applications")  ─┘
+   ```
+
+   Each worker receives its item as input and produces an independent result.
+
+3. **Reduce** — `reduce.md` receives all results and synthesizes
+
+   ```
+   start() → "[hardware]: ...\n[algorithms]: ...\n[applications]: ..."
+   ```
+
+   ```
+   finish(key="done", value=<synthesized report>)
+   ```
+
+</Steps>
+
+## The `parallel` key
+
+The map phase controls whether fan-out happens:
+
+- `finish(key="parallel", value='[...]')` → fan out, spawn one worker per item
+- `finish(key=anything_else, value=...)` → **skip fan-out**, return the value directly
+
+This lets the map agent decide dynamically: if the input doesn't need parallel processing, it can return a direct answer.
+
+## Worker agent
+
+The `worker:` field names the agent used for each parallel item. It's a full agent — any pattern, any skills:
+
+```yaml
+# agents/research-angle/AGENT.md
+---
+name: research-angle
+description: Researches a single angle of a topic.
+version: "1.0.0"
+pattern: react
+call:
+  model:
+    role: thinker
+  uses:
+    - search-web
+---
+
+Research the assigned angle thoroughly. Use search-web to find relevant sources.
+Provide a comprehensive summary with key findings and sources.
+Call finish with key="done" and your research summary.
+```
+
+## Example project structure
+
+```
+agents/
+  deep-research/
+    AGENT.md       ← pattern: scatter, worker: research-angle
+    reduce.md      ← synthesis prompt
+  research-angle/
+    AGENT.md       ← pattern: react, uses: [search-web]
+```
