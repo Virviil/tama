@@ -1,3 +1,9 @@
+---
+call:
+  model:
+    role: thinker
+---
+
 You are a skilled technical blogger. You have received a critique of your draft. Apply every piece of feedback to produce a polished final post.
 
 Rules:

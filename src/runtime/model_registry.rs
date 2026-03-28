@@ -19,7 +19,8 @@ fn role_default_temperature(role: &str) -> Option<f64> {
 pub fn pattern_default_role(pattern: &str) -> &'static str {
     match pattern {
         "react" => "thinker",
-        _ => "worker", // oneshot and everything else
+        "oneshot" => "worker",
+        _ => "default",
     }
 }
 
@@ -221,7 +222,7 @@ fn resolve_direct_spec(name: &str) -> Result<ResolvedModel> {
     let base_url = std::env::var(format!("TAMA_PROVIDER_{provider_str}_BASE_URL")).ok();
 
     Ok(ResolvedModel {
-        role: format!("direct:{name}"),
+        role: String::new(),
         provider,
         model_name,
         temperature: None,

@@ -61,6 +61,7 @@ impl DuckDbTracer {
                 duration_ms   BIGINT
             );
             ALTER TABLE llm_calls ADD COLUMN IF NOT EXISTS temperature REAL;
+            ALTER TABLE llm_calls ADD COLUMN IF NOT EXISTS role TEXT;
 
             CREATE TABLE IF NOT EXISTS tool_calls (
                 span_id   TEXT PRIMARY KEY,
@@ -132,6 +133,7 @@ impl Tracer for DuckDbTracer {
         ctx: &TraceCtx,
         step: &str,
         model: &str,
+        role: &str,
         temperature: Option<f32>,
         system: &str,
         response: &str,
@@ -154,8 +156,8 @@ impl Tracer for DuckDbTracer {
             None
         };
         let _ = self.conn.execute(
-            "INSERT OR IGNORE INTO llm_calls (span_id, trace_id, model, temperature, system_prompt, response, input_tokens, output_tokens, duration_ms) VALUES (?,?,?,?,?,?,?,?,?)",
-            duckdb::params![ctx.span_id, ctx.trace_id, model, temperature.map(|t| t as f64), prompt_to_store, response, input_tokens as i32, output_tokens as i32, duration_ms as i64],
+            "INSERT OR IGNORE INTO llm_calls (span_id, trace_id, model, role, temperature, system_prompt, response, input_tokens, output_tokens, duration_ms) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            duckdb::params![ctx.span_id, ctx.trace_id, model, role, temperature.map(|t| t as f64), prompt_to_store, response, input_tokens as i32, output_tokens as i32, duration_ms as i64],
         );
     }
 

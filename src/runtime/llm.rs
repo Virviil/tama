@@ -12,6 +12,7 @@ use crate::skill::manifest::{ModelRef, Provider};
 
 pub struct LlmClient {
     model_name: String,
+    role: String,
     client: Client,
     agent_name: String,
     debug_hook: Arc<dyn DebugHook + Send + Sync>,
@@ -62,6 +63,7 @@ impl LlmClient {
 
         Ok(LlmClient {
             model_name: genai_model_name,
+            role: if model.role.is_empty() { "custom".to_string() } else { model.role.clone() },
             client,
             agent_name: String::new(),
             debug_hook: debug_hook.unwrap_or_else(|| Arc::new(NoopHook)),
@@ -266,6 +268,10 @@ impl LlmClient {
 
     pub fn temperature(&self) -> Option<f32> {
         self.temperature
+    }
+
+    pub fn role(&self) -> &str {
+        &self.role
     }
 }
 

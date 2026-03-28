@@ -32,6 +32,7 @@ pub async fn call(
         &llm_ctx,
         step_name,
         client.model_name(),
+        client.role(),
         client.temperature(),
         system,
         &response,

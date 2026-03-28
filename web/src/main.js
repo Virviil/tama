@@ -98,6 +98,7 @@ Alpine.data('app', () => ({
         totalAttempts: group.attempts.length,
         events,
         model: firstLlm?.model || '',
+        role: firstLlm?.role ?? null,
         temperature: firstLlm?.temperature ?? null,
         systemPrompt: firstLlm?.system_prompt || '',
         totalIn:  llmEvents.reduce((s, e) => s + e.input_tokens,  0),

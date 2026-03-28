@@ -101,7 +101,8 @@
       <div class="tl-static" x-show="timeline && timeline.model">
         <div class="tl-static-meta">
           <span class="badge b-model" x-text="timeline && timeline.model"></span>
-          <span class="badge b-temp" x-show="timeline && timeline.temperature != null" x-text="'t=' + (timeline && timeline.temperature)"></span>
+          <span class="badge b-role" x-text="timeline && (timeline.role ?? 'custom')"></span>
+          <span class="badge b-temp" x-show="timeline && timeline.temperature != null" x-text="'🌡️' + timeline.temperature?.toFixed(2)"></span>
           <span class="badge b-in">↑ <span x-text="timeline && timeline.totalIn"></span></span>
           <span class="badge b-out">↓ <span x-text="timeline && timeline.totalOut"></span></span>
           <span class="badge b-dur" x-text="timeline && timeline.totalMs + 'ms'"></span>

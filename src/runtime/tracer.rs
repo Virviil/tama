@@ -58,6 +58,7 @@ pub trait Tracer: Send {
         ctx: &TraceCtx,
         step: &str,
         model: &str,
+        role: &str,
         temperature: Option<f32>,
         system: &str,
         response: &str,
@@ -101,6 +102,7 @@ impl Tracer for NoopTracer {
     fn on_llm_call(
         &mut self,
         _: &TraceCtx,
+        _: &str,
         _: &str,
         _: &str,
         _: Option<f32>,
@@ -152,6 +154,7 @@ impl Tracer for OtelTracer {
     fn on_llm_call(
         &mut self,
         _: &TraceCtx,
+        _: &str,
         _: &str,
         _: &str,
         _: Option<f32>,
@@ -213,6 +216,7 @@ impl Tracer for CompositeTracer {
         ctx: &TraceCtx,
         step: &str,
         model: &str,
+        role: &str,
         temperature: Option<f32>,
         system: &str,
         response: &str,
@@ -221,7 +225,7 @@ impl Tracer for CompositeTracer {
         dur: u128,
     ) {
         for t in &mut self.tracers {
-            t.on_llm_call(ctx, step, model, temperature, system, response, in_tok, out_tok, dur);
+            t.on_llm_call(ctx, step, model, role, temperature, system, response, in_tok, out_tok, dur);
         }
     }
     fn on_tool_call(&mut self, ctx: &TraceCtx, tool: &str, args: &str, result: &str, dur: u128) {
@@ -266,6 +270,7 @@ enum BufferedEvent {
         ctx: TraceCtx,
         step: String,
         model: String,
+        role: String,
         temperature: Option<f32>,
         system: String,
         response: String,
@@ -324,6 +329,7 @@ impl BufferedTracer {
                     ctx,
                     step,
                     model,
+                    role,
                     temperature,
                     system,
                     response,
@@ -334,6 +340,7 @@ impl BufferedTracer {
                     &ctx,
                     &step,
                     &model,
+                    &role,
                     temperature,
                     &system,
                     &response,
@@ -393,6 +400,7 @@ impl Tracer for BufferedTracer {
         ctx: &TraceCtx,
         step: &str,
         model: &str,
+        role: &str,
         temperature: Option<f32>,
         system: &str,
         response: &str,
@@ -404,6 +412,7 @@ impl Tracer for BufferedTracer {
             ctx: ctx.clone(),
             step: step.to_string(),
             model: model.to_string(),
+            role: role.to_string(),
             temperature,
             system: system.to_string(),
             response: response.to_string(),

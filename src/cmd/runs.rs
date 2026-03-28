@@ -290,12 +290,12 @@ fn api_span_detail(span_id: &str) -> Result<String> {
     let duration_ms = end_ms - start_ms;
 
     let v = if kind == "llm" {
-        let (model, system_prompt, response, in_tok, out_tok, temperature): (String, String, String, i32, i32, Option<f64>) = conn.query_row(
-            "SELECT model, system_prompt, response, input_tokens, output_tokens, temperature FROM llm_calls WHERE span_id=?",
+        let (model, system_prompt, response, in_tok, out_tok, temperature, role): (String, String, String, i32, i32, Option<f64>, String) = conn.query_row(
+            "SELECT model, system_prompt, response, input_tokens, output_tokens, temperature, role FROM llm_calls WHERE span_id=?",
             [span_id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?, row.get(6)?)),
         )?;
-        serde_json::json!({ "kind": "llm", "name": name, "model": model, "temperature": temperature, "system_prompt": system_prompt, "response": response, "input_tokens": in_tok, "output_tokens": out_tok, "duration_ms": duration_ms })
+        serde_json::json!({ "kind": "llm", "name": name, "model": model, "role": role, "temperature": temperature, "system_prompt": system_prompt, "response": response, "input_tokens": in_tok, "output_tokens": out_tok, "duration_ms": duration_ms })
     } else if kind == "tool" {
         let (tool_name, args_json, result, dur): (String, String, String, i64) = conn.query_row(
             "SELECT tool_name, args_json, result, duration_ms FROM tool_calls WHERE span_id=?",
@@ -490,10 +490,10 @@ fn api_agent_timeline(span_id: &str) -> Result<String> {
         let duration_ms = end_ms - start_ms;
         let step = name.splitn(3, ':').nth(1).unwrap_or(&name).to_string();
         if kind == "llm" {
-            if let Ok((model, system_prompt, response, in_tok, out_tok, temperature)) = conn.query_row(
-                "SELECT model, COALESCE(system_prompt,''), response, input_tokens, output_tokens, temperature FROM llm_calls WHERE span_id=?",
+            if let Ok((model, system_prompt, response, in_tok, out_tok, temperature, role)) = conn.query_row(
+                "SELECT model, COALESCE(system_prompt,''), response, input_tokens, output_tokens, temperature, role FROM llm_calls WHERE span_id=?",
                 [&sid],
-                |row| Ok((row.get::<_,String>(0)?, row.get::<_,String>(1)?, row.get::<_,String>(2)?, row.get::<_,i32>(3)?, row.get::<_,i32>(4)?, row.get::<_,Option<f64>>(5)?)),
+                |row| Ok((row.get::<_,String>(0)?, row.get::<_,String>(1)?, row.get::<_,String>(2)?, row.get::<_,i32>(3)?, row.get::<_,i32>(4)?, row.get::<_,Option<f64>>(5)?, row.get::<_,String>(6)?)),
             ) {
                 // Send system_prompt only on first LLM event; empty string for the rest
                 let sp = if !system_prompt_sent && !system_prompt.is_empty() {
@@ -504,7 +504,7 @@ fn api_agent_timeline(span_id: &str) -> Result<String> {
                 };
                 events.push(serde_json::json!({
                     "kind": "llm", "step": step, "duration_ms": duration_ms,
-                    "model": model, "temperature": temperature, "system_prompt": sp, "response": response,
+                    "model": model, "role": role, "temperature": temperature, "system_prompt": sp, "response": response,
                     "input_tokens": in_tok, "output_tokens": out_tok,
                 }));
             }
