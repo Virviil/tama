@@ -86,6 +86,38 @@ Run 2–3 searches to triangulate facts before concluding.
 
 Two file types. Unlimited composability.
 
+## The routing problem
+
+Every multi-agent framework has a routing problem: how does the system decide which agent runs next?
+
+Most solve it one of two ways:
+
+**Option 1 — write code.** LangGraph gives you conditional edge functions. Agno gives you a `Router(selector=fn)`. You write a Python function for every branch, every cycle, every conditional. Your control flow lives in code alongside your prompts.
+
+**Option 2 — let the LLM decide.** Docker Agent's handoffs, CrewAI's hierarchical mode, AutoGen's group chat — the model decides which agent to delegate to. This works until it doesn't. When it breaks, it breaks silently, mid-pipeline.
+
+tama does neither. The LLM calls `finish(key="billing", value="issue summary")`. The FSM state table maps `"billing"` to `billing-agent`. Deterministically. No code. No LLM making routing decisions.
+
+```yaml
+---
+name: support
+pattern: fsm
+initial: triage
+states:
+  triage:
+    - billing: billing-agent
+    - technical: tech-agent
+    - general: general-agent
+  billing-agent:
+    - done: ~
+    - escalate: triage      # explicit cycle — no prompt engineering needed
+  tech-agent: ~
+  general-agent: ~
+---
+```
+
+The triage agent never knows the routing table exists. Its job is to call `finish` with the right key. The runtime does the rest. Cycles, escalation paths, retry loops — all declared, all auditable, all enforced by the Rust runtime before any LLM call is made.
+
 ## Patterns, not plumbing
 
 The real insight behind tama is that most multiagent workflows follow a small set of recurring shapes. We identified 13 of them and made each one a keyword:
@@ -116,24 +148,16 @@ Patterns compose naturally. An FSM connects agents sequentially with conditional
 ---
 name: support-pipeline
 pattern: fsm
+initial: triage
 states:
-  triage:
-    unconditional: classify
+  triage: classify                  # unconditional — always goes to classify
   classify:
-    conditional:
-      - key: billing
-        target: billing-agent
-      - key: technical
-        target: tech-agent
-      - key: general
-        target: general-agent
-  billing-agent:
-    unconditional: _end
-  tech-agent:
-    unconditional: _end
-  general-agent:
-    unconditional: _end
-  _end: ~
+    - billing: billing-agent
+    - technical: tech-agent
+    - general: general-agent
+  billing-agent: ~
+  tech-agent: ~
+  general-agent: ~
 ---
 ```
 
@@ -184,12 +208,12 @@ tama lint
 # run
 ANTHROPIC_API_KEY=sk-... tamad "research the current state of fusion energy"
 
-# ship
+# ship (coming soon)
 tama brew
 docker push my-project:latest
 ```
 
-`tama brew` compiles your entire project — all agents, all skills, all prompt files — into a self-contained Docker image that runs `tamad` as its entrypoint. No runtime dependencies. No Python environments to manage.
+`tama brew` will compile your entire project — all agents, all skills, all prompt files — into a self-contained Docker image. If your skills use Python, the image includes a distroless Python base with uv-installed deps. If they don't, there's no Python runtime at all — just the `tamad` binary. Only what you actually use. **`tama brew` is on the roadmap and not yet released.**
 
 ## Why Markdown?
 

@@ -18,7 +18,17 @@
 - Step-through debugger with queue-based parallel serialisation
 - `after_agent` hook with retry
 - OpenTelemetry tracer + DuckDB tracer
-- `tama init`, `tama add`, `tama lint`, `tama brew`, `tama run`, `tama runs`
+- `tama init`, `tama add`, `tama lint`, `tama run`, `tama runs`
+
+---
+
+## Planned
+
+- **`tama brew`** — compile project into a self-contained distroless Docker image; multi-stage build resolves all deps at build time; Python skills → distroless Python base + uv-installed deps; no Python skills → pure `gcr.io/distroless/cc-debian12` (~8MB)
+- **`tama serve`** — HTTP server mode for production (`tamad --serve`)
+- **Skill registry** — public skill hosting (`tama add search-web` pulls from registry)
+- **`tama runs diff`** — compare two runs side by side
+- **Artifact lineage** — track which output came from which agent + run
 
 ---
 

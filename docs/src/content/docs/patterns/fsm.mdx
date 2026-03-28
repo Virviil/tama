@@ -83,11 +83,31 @@ states:
 
 First match wins. Use `"*"` as a catch-all default.
 
-### Terminal
+### Terminal (dead-leaf)
 
 ```yaml
 states:
-  done:    # no transitions — the FSM ends here
+  done: ~    # ~ = null = terminal — no transitions, FSM ends here
+```
+
+`~` is the explicit YAML null marker. Writing `done:` (empty) is equivalent, but `~` makes the intent clear. Any state whose value is `~` is a dead-leaf — the FSM stops there and returns the last agent's output.
+
+You can point multiple states at the same named terminal:
+
+```yaml
+states:
+  path-a:
+    - ok: end
+    - fail: end
+  path-b: end
+  end: ~     # single shared terminal
+```
+
+Or make a state terminal directly without a shared name:
+
+```yaml
+states:
+  billing-agent: ~    # billing-agent is itself the terminal
 ```
 
 The output of the last agent (key + value) propagates as the FSM's output.

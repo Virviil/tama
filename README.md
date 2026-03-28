@@ -19,7 +19,7 @@ docker run --env-file .env my-agent "research quantum computing trends"
 
 - **Skills are Markdown files.** Human-readable, git-diffable, writable in any editor.
 - **Patterns are skills.** `chain-of-thought`, `critic`, `tree-of-thought` — all just skills that compose others. No special syntax.
-- **Deps are declared, not installed at runtime.** `tama brew` resolves everything at compile time → distroless image with zero bloat.
+- **Deps are declared, not installed at runtime.** `tama brew` resolves everything at build time → distroless image with only what your skills actually need. Python skills get a distroless Python base + uv-installed deps. No-Python projects get no Python runtime at all.
 - **The runtime is a Rust binary.** No bash, no Python orchestrator, no framework. Just a fast binary calling other binaries.
 
 ---
@@ -52,13 +52,14 @@ tama serve                     # brew + build + run as HTTP/SSE server
 
 ---
 
-## Docker output
+## Docker output *(coming soon — `tama brew` is on the roadmap)*
 
 Multi-stage distroless build:
 
 ```
-debian:bookworm-slim  →  extract binaries/libs  →  gcr.io/distroless/cc-debian12
-     (builder)              (only what's needed)         (final ~8MB + deps)
+debian:bookworm-slim  →  extract binaries/libs  →  distroless base
+     (builder)              (only what's needed)    (cc or python, ~8MB + deps)
 ```
 
-No shell. No package managers. No root. Just your agent.
+If your skills use Python: distroless Python + uv-installed deps.
+If they don't: pure `gcr.io/distroless/cc-debian12` — no shell, no package managers, no root.

@@ -175,6 +175,6 @@ states:
     - good-enough: done
     - needs-work: critique
     - "*": error-handler    # catch-all
-  done:                      # terminal (no value)
-  error-handler:
+  done: ~                    # terminal — ~ (YAML null) is the dead-leaf marker
+  error-handler: ~           # writing bare "done:" (empty) is equivalent, but ~ is preferred
 ```
