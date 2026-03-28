@@ -11,89 +11,64 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
-  # ── Step 1: build tamad for linux/amd64 first ─────────────────────────────
-  # tama embeds the SHA256 of this binary at compile time so it can verify
-  # downloads in `tama brew` (supply-chain protection).
-  build-tamad-linux-amd64:
-    name: Build tamad (linux/amd64)
-    runs-on: ubuntu-latest
-    outputs:
-      sha256: ${{ steps.sha.outputs.sha256 }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build tamad
-        run: cargo build --release --bin tamad
-
-      - name: Strip binary
-        run: strip target/release/tamad
-
-      - name: Compute SHA256 and package
-        id: sha
-        run: |
-          SHA=$(sha256sum target/release/tamad | cut -d' ' -f1)
-          echo "sha256=$SHA" >> $GITHUB_OUTPUT
-          mkdir -p dist
-          cp target/release/tamad dist/tamad-linux-amd64
-          cd dist
-          tar czf tamad-linux-amd64.tar.gz tamad-linux-amd64
-          sha256sum tamad-linux-amd64.tar.gz > tamad-linux-amd64.tar.gz.sha256
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: tamad-linux-amd64
-          path: dist/
-
-  # ── Step 2: build tama (all platforms) + tamad (non-amd64 platforms) ──────
-  # Web assets must be compiled before Rust so rust-embed can include them.
-  # TAMAD_LINUX_AMD64_SHA256 is injected at compile time via option_env!().
-  build-release:
-    name: Build Release
-    needs: build-tamad-linux-amd64
+  # ── tamad: Debian only (daemon feature — no duckdb, no clap) ─────────────
+  build-tamad:
+    name: Build tamad (${{ matrix.suffix }})
     strategy:
       fail-fast: false
       matrix:
         include:
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-            suffix: linux-x86_64
-            build_tamad: false   # already built in build-tamad-linux-amd64
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-24.04-arm
-            suffix: linux-aarch64
-            build_tamad: true
-          - target: x86_64-apple-darwin
-            os: macos-15-intel
-            suffix: darwin-x86_64
-            build_tamad: true
-          - target: aarch64-apple-darwin
-            os: macos-latest
-            suffix: darwin-aarch64
-            build_tamad: true
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-            suffix: windows-x86_64
-            build_tamad: true
-
+          - os: ubuntu-latest
+            suffix: linux-amd64
+          - os: ubuntu-24.04-arm
+            suffix: linux-arm64
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build tamad
+        run: cargo build --release --bin tamad --no-default-features --features daemon
+
+      - name: Strip and package
+        run: |
+          strip target/release/tamad
+          mkdir -p dist
+          cp target/release/tamad dist/tamad-${{ matrix.suffix }}
+          cd dist
+          tar czf tamad-${{ matrix.suffix }}.tar.gz tamad-${{ matrix.suffix }}
+          sha256sum tamad-${{ matrix.suffix }}.tar.gz > tamad-${{ matrix.suffix }}.tar.gz.sha256
+
+      - uses: actions/upload-artifact@v4
         with:
-          targets: ${{ matrix.target }}
+          name: tamad-${{ matrix.suffix }}
+          path: dist/
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+  # ── tama: all platforms (cli feature — full) ──────────────────────────────
+  build-tama:
+    name: Build tama (${{ matrix.suffix }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            suffix: linux-amd64
+          - os: ubuntu-24.04-arm
+            suffix: linux-arm64
+          - os: macos-latest
+            suffix: darwin-arm64
+          - os: macos-15-intel
+            suffix: darwin-amd64
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/setup-node@v4
         with:
           node-version: "22"
 
@@ -101,121 +76,68 @@ jobs:
         run: cd web && npm install && npm run build
 
       - name: Build tama
-        run: cargo build --release --target ${{ matrix.target }} --bin tama
-        env:
-          TAMAD_LINUX_AMD64_SHA256: ${{ needs.build-tamad-linux-amd64.outputs.sha256 }}
+        run: cargo build --release --bin tama
 
-      - name: Build tamad
-        if: matrix.build_tamad
-        run: cargo build --release --target ${{ matrix.target }} --bin tamad
-
-      - name: Strip binaries (Unix)
-        if: runner.os != 'Windows'
+      - name: Strip and package
         run: |
-          strip target/${{ matrix.target }}/release/tama
-          if [ "${{ matrix.build_tamad }}" = "true" ]; then
-            strip target/${{ matrix.target }}/release/tamad
-          fi
-
-      - name: Prepare binaries (Unix)
-        if: runner.os != 'Windows'
-        run: |
+          strip target/release/tama
           mkdir -p dist
-          cp target/${{ matrix.target }}/release/tama dist/tama-${{ matrix.suffix }}
-          if [ "${{ matrix.build_tamad }}" = "true" ]; then
-            cp target/${{ matrix.target }}/release/tamad dist/tamad-${{ matrix.suffix }}
-          fi
-
-      - name: Prepare binaries (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          mkdir dist
-          cp target/${{ matrix.target }}/release/tama.exe dist/tama-${{ matrix.suffix }}.exe
-          cp target/${{ matrix.target }}/release/tamad.exe dist/tamad-${{ matrix.suffix }}.exe
-
-      - name: Create tarballs (Unix)
-        if: runner.os != 'Windows'
-        run: |
+          cp target/release/tama dist/tama-${{ matrix.suffix }}
           cd dist
-          tar czf tama-${{ matrix.suffix }}.tar.gz  tama-${{ matrix.suffix }}
+          tar czf tama-${{ matrix.suffix }}.tar.gz tama-${{ matrix.suffix }}
           sha256sum tama-${{ matrix.suffix }}.tar.gz > tama-${{ matrix.suffix }}.tar.gz.sha256
-          if [ "${{ matrix.build_tamad }}" = "true" ]; then
-            tar czf tamad-${{ matrix.suffix }}.tar.gz tamad-${{ matrix.suffix }}
-            sha256sum tamad-${{ matrix.suffix }}.tar.gz > tamad-${{ matrix.suffix }}.tar.gz.sha256
-          fi
 
-      - name: Create tarballs (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          cd dist
-          tar czf tama-${{ matrix.suffix }}.tar.gz  tama-${{ matrix.suffix }}.exe
-          tar czf tamad-${{ matrix.suffix }}.tar.gz tamad-${{ matrix.suffix }}.exe
-          certutil -hashfile tama-${{ matrix.suffix }}.tar.gz  SHA256 | findstr /v ":" > tama-${{ matrix.suffix }}.tar.gz.sha256
-          certutil -hashfile tamad-${{ matrix.suffix }}.tar.gz SHA256 | findstr /v ":" > tamad-${{ matrix.suffix }}.tar.gz.sha256
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: binaries-${{ matrix.target }}
+          name: tama-${{ matrix.suffix }}
           path: dist/
 
-  # ── Step 3: Debian packages — tama only ───────────────────────────────────
-  # tamad is distributed as a plain tarball (downloaded by `tama brew` at
-  # runtime); no deb packaging needed for it.
+  # ── Debian packages for tama ──────────────────────────────────────────────
   build-deb:
-    name: Build Debian Packages (tama)
-    needs: build-release
+    name: Build Debian Packages
+    needs: build-tama
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Get version from tag
-        id: get_version
+      - name: Get version
+        id: ver
         run: |
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            VERSION="${GITHUB_REF#refs/tags/v}"
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
           else
-            VERSION="$(grep '^version' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')"
+            echo "version=$(grep '^version' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')" >> $GITHUB_OUTPUT
           fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Download Linux x86_64 binaries
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          name: binaries-x86_64-unknown-linux-gnu
-          path: ./dist-x86_64
+          name: tama-linux-amd64
+          path: dist-amd64
 
-      - name: Download Linux ARM64 binaries
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          name: binaries-aarch64-unknown-linux-gnu
-          path: ./dist-aarch64
+          name: tama-linux-arm64
+          path: dist-arm64
 
       - name: Install packaging tools
         run: sudo apt-get update && sudo apt-get install -y dpkg-dev
 
-      - name: Build Debian packages for tama
+      - name: Build .deb packages
         run: |
-          VERSION="${{ steps.get_version.outputs.version }}"
+          VERSION="${{ steps.ver.outputs.version }}"
 
-          for ARCH_PAIR in "amd64:x86_64" "arm64:aarch64"; do
-            ARCH="${ARCH_PAIR%%:*}"
-            SUFFIX="${ARCH_PAIR##*:}"
-            DIST_DIR="dist-${SUFFIX}"
-            PKG_NAME="tama_${VERSION}_${ARCH}"
+          for PAIR in "amd64:amd64" "arm64:arm64"; do
+            ARCH="${PAIR%%:*}"
+            SUFFIX="${PAIR##*:}"
+            PKG="tama_${VERSION}_${ARCH}"
 
-            mkdir -p "${PKG_NAME}/DEBIAN"
-            mkdir -p "${PKG_NAME}/usr/bin"
-            mkdir -p "${PKG_NAME}/usr/share/doc/tama"
+            mkdir -p "${PKG}/DEBIAN" "${PKG}/usr/bin" "${PKG}/usr/share/doc/tama"
+            cp "dist-${SUFFIX}/tama-linux-${SUFFIX}" "${PKG}/usr/bin/tama"
+            chmod 755 "${PKG}/usr/bin/tama"
+            [ -f README.md ] && cp README.md "${PKG}/usr/share/doc/tama/"
 
-            cp "${DIST_DIR}/tama-linux-${SUFFIX}" "${PKG_NAME}/usr/bin/tama"
-            chmod 755 "${PKG_NAME}/usr/bin/tama"
-
-            [ -f README.md ] && cp README.md "${PKG_NAME}/usr/share/doc/tama/"
-
-            cat > "${PKG_NAME}/DEBIAN/control" << EOF
+            cat > "${PKG}/DEBIAN/control" <<EOF
           Package: tama
           Version: ${VERSION}
           Section: utils
@@ -227,49 +149,43 @@ jobs:
           Homepage: https://github.com/mlnja/tama
           EOF
 
-            dpkg-deb --build "${PKG_NAME}"
+            dpkg-deb --build "${PKG}"
           done
 
-      - name: Generate checksums
-        run: sha256sum tama_*.deb > debian-checksums.txt
+          sha256sum tama_*.deb > debian-checksums.txt
 
-      - name: Upload Debian artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: debian-packages
           path: |
             tama_*.deb
             debian-checksums.txt
 
-  # ── Step 4: publish GitHub release ────────────────────────────────────────
+  # ── GitHub Release ────────────────────────────────────────────────────────
   create-release:
     name: Create Release
-    needs: [build-tamad-linux-amd64, build-release, build-deb]
+    needs: [build-tamad, build-tama, build-deb]
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Prepare release assets
+      - name: Collect release assets
         run: |
           mkdir -p release-assets
-          find artifacts -type f \( -name "*.tar.gz" -o -name "*.sha256" -o -name "*.deb" -o -name "*checksums.txt" \) -exec cp {} release-assets/ \;
+          find artifacts -type f \( -name "*.tar.gz" -o -name "*.sha256" -o -name "*.deb" -o -name "debian-checksums.txt" \) \
+            -exec cp {} release-assets/ \;
           ls -lh release-assets/
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
           files: release-assets/*
           generate_release_notes: true
-          draft: false
-          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

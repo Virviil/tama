@@ -1,4 +1,5 @@
 pub mod debug_hook;
+#[cfg(feature = "cli")]
 pub mod duckdb_tracer;
 pub mod graph;
 pub mod llm;
@@ -25,11 +26,14 @@ pub async fn run(
     tools::inmemory::clear();
     // Install the rollbacker. DuckDbRollbacker when a debug hook is active (retries
     // possible); NoopRollbacker in production (zero cost — no DuckDB, no recording).
+    #[cfg(feature = "cli")]
     if debug_hook.is_some() {
         rollbacker::install(rollbacker::DuckDbRollbacker::new(".tama/rollback.duckdb")?);
     } else {
         rollbacker::install(rollbacker::NoopRollbacker);
     }
+    #[cfg(not(feature = "cli"))]
+    rollbacker::install(rollbacker::NoopRollbacker);
     rollbacker::clear();
     let config = crate::config::TomlConfig::load()?;
     let registry = Arc::new(ModelRegistry::build(&config)?);

@@ -1,6 +1,6 @@
 [package]
 name = "tama"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 description = "Multi-agent AI framework — build, run, and trace agent pipelines from the command line"
 license = "Elastic-2.0"
@@ -24,13 +24,19 @@ path = "src/lib.rs"
 [[bin]]
 name = "tama"
 path = "src/tama.rs"
+required-features = ["cli"]
 
 [[bin]]
 name = "tamad"
 path = "src/tamad.rs"
 
+[features]
+default = ["cli"]
+cli     = ["dep:duckdb", "dep:clap", "dep:rust-embed"]
+daemon  = []
+
 [dependencies]
-clap       = { version = "4", features = ["derive"] }
+clap       = { version = "4", features = ["derive"], optional = true }
 serde      = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
 anyhow     = "1"
@@ -43,7 +49,7 @@ reqwest    = { version = "0.13", features = ["rustls", "json", "blocking"], defa
 tempfile   = "3"
 futures    = "0.3"
 uuid       = { version = "1", features = ["v4"] }
-duckdb     = { version = "1", features = ["bundled"] }
-rust-embed = { version = "8", features = ["include-exclude"] }
+duckdb     = { version = "1", features = ["bundled"], optional = true }
+rust-embed = { version = "8", features = ["include-exclude"], optional = true }
 sha2       = { version = "0.10", default-features = false, features = ["std"] }
 hex        = "0.4"

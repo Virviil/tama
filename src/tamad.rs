@@ -1,17 +1,11 @@
-use anyhow::Result;
-use clap::Parser;
+use anyhow::{Context, Result};
 
 use tama::runtime::tracer::OtelTracer;
 
-#[derive(Parser)]
-#[command(name = "tamad", about = "tama runtime — executes agents via LLM")]
-struct Cli {
-    /// Task to run
-    task: String,
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
-    let cli = Cli::parse();
-    tama::runtime::run(&cli.task, Box::new(OtelTracer::new()), None).await
+    let task = std::env::args()
+        .nth(1)
+        .context("usage: tamad <task>")?;
+    tama::runtime::run(&task, Box::new(OtelTracer::new()), None).await
 }

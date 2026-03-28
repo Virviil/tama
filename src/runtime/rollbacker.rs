@@ -1,6 +1,8 @@
 use std::sync::{LazyLock, Mutex};
 
+#[cfg(feature = "cli")]
 use anyhow::Result;
+#[cfg(feature = "cli")]
 use duckdb::Connection;
 
 // ── Trait ─────────────────────────────────────────────────────────────────────
@@ -49,11 +51,13 @@ impl Rollbacker for NoopRollbacker {
 /// undo logic for each tool_name it recognises:
 ///   - `tama_mem_set` → restore key to old_value (or delete if old_value was NULL)
 ///   - anything else  → skip (no rollback handler registered)
+#[cfg(feature = "cli")]
 pub struct DuckDbRollbacker {
     conn: Connection,
     seq: i64,
 }
 
+#[cfg(feature = "cli")]
 impl DuckDbRollbacker {
     pub fn new(db_path: &str) -> Result<Self> {
         std::fs::create_dir_all(
@@ -77,6 +81,7 @@ impl DuckDbRollbacker {
     }
 }
 
+#[cfg(feature = "cli")]
 impl Rollbacker for DuckDbRollbacker {
     fn record_tool_call(
         &mut self,
