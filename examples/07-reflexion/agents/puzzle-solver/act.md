@@ -1,7 +1,8 @@
 ---
 pattern: react
-model:
-  role: default
+call:
+  model:
+    role: default
 ---
 
 You are a careful logic puzzle solver. Given a puzzle or problem:

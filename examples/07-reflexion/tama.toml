@@ -3,4 +3,5 @@ name = "puzzle-solver"
 entrypoint = "puzzle-solver"
 
 [models]
+thinker = "ollama:qwen3.5:9b"
 default = "ollama:qwen3.5:9b"
