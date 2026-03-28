@@ -28,7 +28,7 @@ pub async fn run(
     // possible); NoopRollbacker in production (zero cost — no DuckDB, no recording).
     #[cfg(feature = "cli")]
     if debug_hook.is_some() {
-        rollbacker::install(rollbacker::DuckDbRollbacker::new(".tama/rollback.duckdb")?);
+        rollbacker::install(rollbacker::SqliteRollbacker::new(".tama/rollback.db")?);
     } else {
         rollbacker::install(rollbacker::NoopRollbacker);
     }

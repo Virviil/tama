@@ -2,11 +2,11 @@ use anyhow::Result;
 use std::sync::Arc;
 
 use crate::runtime::debug_hook::{CliDebugger, DebugHook};
-use crate::runtime::duckdb_tracer::DuckDbTracer;
+use crate::runtime::duckdb_tracer::SqliteTracer;
 use crate::runtime::tracer::{CompositeTracer, OtelTracer};
 
 const DB_DIR: &str = ".tama";
-const DB_PATH: &str = ".tama/runs.duckdb";
+const DB_PATH: &str = ".tama/runs.db";
 
 pub async fn run(
     task: &str,
@@ -20,8 +20,10 @@ pub async fn run(
 
     std::fs::create_dir_all(DB_DIR)?;
 
-    let duckdb = DuckDbTracer::new(DB_PATH)?;
-    let tracer = CompositeTracer::new(vec![Box::new(OtelTracer::new()), Box::new(duckdb)]);
+    let tracer = CompositeTracer::new(vec![
+        Box::new(OtelTracer::new()),
+        Box::new(SqliteTracer::new(DB_PATH)?),
+    ]);
 
     let debug_hook: Option<Arc<dyn DebugHook + Send + Sync>> = if debug {
         if !breakpoints.is_empty() {

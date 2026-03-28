@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use duckdb::Connection;
+use rusqlite::Connection;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
@@ -7,7 +7,7 @@ use tokio::net::TcpListener;
 #[folder = "web/dist/"]
 struct WebDist;
 
-const DB_PATH: &str = ".tama/runs.duckdb";
+const DB_PATH: &str = ".tama/runs.db";
 
 pub fn list() -> Result<()> {
     let conn = open_db()?;
@@ -323,8 +323,8 @@ fn open_in_browser(url: &str) {
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 fn open_db() -> Result<Connection> {
-    Connection::open(DB_PATH)
-        .context("failed to open .tama/runs.duckdb — have you run `tama run` yet?")
+    Connection::open_with_flags(DB_PATH, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .context("failed to open .tama/runs.db — have you run `tama run` yet?")
 }
 
 fn get_llm_call(

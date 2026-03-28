@@ -4,3 +4,4 @@ entrypoint = "pipeline"
 
 [models]
 thinker = "anthropic:claude-haiku-4-5-20251001"
+default = "anthropic:claude-haiku-4-5-20251001"

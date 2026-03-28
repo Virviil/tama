@@ -4,3 +4,5 @@
 **/*.duckdb.wal
 **/.env
 **/node_modules/
+
+**/.tama/

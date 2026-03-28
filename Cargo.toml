@@ -1,6 +1,6 @@
 [package]
 name = "tama"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2021"
 description = "Multi-agent AI framework — build, run, and trace agent pipelines from the command line"
 license = "Elastic-2.0"
@@ -32,7 +32,7 @@ path = "src/tamad.rs"
 
 [features]
 default = ["cli"]
-cli     = ["dep:duckdb", "dep:clap", "dep:rust-embed"]
+cli     = ["dep:rusqlite", "dep:clap", "dep:rust-embed"]
 daemon  = []
 
 [dependencies]
@@ -44,12 +44,12 @@ walkdir    = "2"
 genai      = "0.5.3"
 tokio      = { version = "1", features = ["macros", "rt-multi-thread", "process"] }
 serde_json = "1"
-toml       = "0.8"
+toml       = "1.1"
 reqwest    = { version = "0.13", features = ["rustls", "json", "blocking"], default-features = false }
 tempfile   = "3"
 futures    = "0.3"
 uuid       = { version = "1", features = ["v4"] }
-duckdb     = { version = "1", features = ["bundled"], optional = true }
+rusqlite   = { version = "0.39", features = ["bundled"], optional = true }
 rust-embed = { version = "8", features = ["include-exclude"], optional = true }
-sha2       = { version = "0.10", default-features = false, features = ["std"] }
+sha2       = { version = "0.11"}
 hex        = "0.4"
