@@ -45,8 +45,8 @@ pub fn get(key: &str) -> String {
 /// as JSON it is stored as a JSON string.
 pub fn append(key: &str, item: &str) -> String {
     let mut store = STORE.lock().unwrap();
-    let item_val: serde_json::Value = serde_json::from_str(item)
-        .unwrap_or_else(|_| serde_json::Value::String(item.to_string()));
+    let item_val: serde_json::Value =
+        serde_json::from_str(item).unwrap_or_else(|_| serde_json::Value::String(item.to_string()));
 
     let mut arr: Vec<serde_json::Value> = store
         .get(key)

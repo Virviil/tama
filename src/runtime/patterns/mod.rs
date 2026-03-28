@@ -156,7 +156,9 @@ async fn dispatch(
         .map(|c| c.uses.as_slice())
         .unwrap_or(&[]);
     match &node.agent.pattern {
-        AgentPattern::Critic => critic::run(&node.dir, registry, client, input, tracer, ctx, crumb).await,
+        AgentPattern::Critic => {
+            critic::run(&node.dir, registry, client, input, tracer, ctx, crumb).await
+        }
         AgentPattern::React => {
             react::run(
                 &node.agent.body,
@@ -191,7 +193,10 @@ async fn dispatch(
             parallel::run(graph, registry, workers, client, input, tracer, ctx, crumb).await
         }
         AgentPattern::Fsm { initial, states } => {
-            fsm::run(graph, registry, initial, states, client, input, tracer, ctx, crumb).await
+            fsm::run(
+                graph, registry, initial, states, client, input, tracer, ctx, crumb,
+            )
+            .await
         }
         AgentPattern::Reflexion => {
             let reflexion_iter = node.agent.max_iter.unwrap_or(4);

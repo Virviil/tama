@@ -92,7 +92,11 @@ impl Step {
             Step::Oneshot(s) => {
                 let value =
                     super::oneshot::call(&s.body, input, name, client, tracer, ctx, crumb).await?;
-                Ok(AgentOutput { key: "done".to_string(), value, span_id: String::new() })
+                Ok(AgentOutput {
+                    key: "done".to_string(),
+                    value,
+                    span_id: String::new(),
+                })
             }
             Step::React(s) => {
                 super::react::react_loop(

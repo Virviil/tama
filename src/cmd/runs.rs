@@ -327,7 +327,10 @@ fn open_db() -> Result<Connection> {
         .context("failed to open .tama/runs.duckdb — have you run `tama run` yet?")
 }
 
-fn get_llm_call(conn: &Connection, span_id: &str) -> Result<(String, String, String, i32, i32, Option<f64>)> {
+fn get_llm_call(
+    conn: &Connection,
+    span_id: &str,
+) -> Result<(String, String, String, i32, i32, Option<f64>)> {
     conn.query_row(
         "SELECT model, system_prompt, response, input_tokens, output_tokens, temperature FROM llm_calls WHERE span_id=?",
         [span_id],

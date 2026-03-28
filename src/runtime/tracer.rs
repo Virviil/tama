@@ -225,7 +225,18 @@ impl Tracer for CompositeTracer {
         dur: u128,
     ) {
         for t in &mut self.tracers {
-            t.on_llm_call(ctx, step, model, role, temperature, system, response, in_tok, out_tok, dur);
+            t.on_llm_call(
+                ctx,
+                step,
+                model,
+                role,
+                temperature,
+                system,
+                response,
+                in_tok,
+                out_tok,
+                dur,
+            );
         }
     }
     fn on_tool_call(&mut self, ctx: &TraceCtx, tool: &str, args: &str, result: &str, dur: u128) {
@@ -358,9 +369,11 @@ impl BufferedTracer {
                 BufferedEvent::SyntheticStart { ctx, input } => {
                     tracer.on_synthetic_start(&ctx, &input)
                 }
-                BufferedEvent::SyntheticFinish { ctx, args_json, result } => {
-                    tracer.on_synthetic_finish(&ctx, &args_json, &result)
-                }
+                BufferedEvent::SyntheticFinish {
+                    ctx,
+                    args_json,
+                    result,
+                } => tracer.on_synthetic_finish(&ctx, &args_json, &result),
             }
         }
     }

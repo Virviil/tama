@@ -2,9 +2,9 @@ use anyhow::Result;
 use std::path::Path;
 use std::sync::Arc;
 
-use super::AgentOutput;
 use super::oneshot;
 use super::step::Step;
+use super::AgentOutput;
 use crate::runtime::llm::LlmClient;
 use crate::runtime::model_registry::ModelRegistry;
 use crate::runtime::tracer::{TraceCtx, Tracer};
@@ -79,7 +79,18 @@ pub async fn run(
         "Original question: {input}\n\nInitial answer:\n{initial}\n\nVerification results:\n{}",
         verifications.join("\n\n")
     );
-    let revised = revise_step.run(&revise_input, "revise", registry, client, tracer, ctx, crumb).await?.value;
+    let revised = revise_step
+        .run(
+            &revise_input,
+            "revise",
+            registry,
+            client,
+            tracer,
+            ctx,
+            crumb,
+        )
+        .await?
+        .value;
 
     Ok(AgentOutput {
         key: "done".to_string(),

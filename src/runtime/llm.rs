@@ -63,7 +63,11 @@ impl LlmClient {
 
         Ok(LlmClient {
             model_name: genai_model_name,
-            role: if model.role.is_empty() { "custom".to_string() } else { model.role.clone() },
+            role: if model.role.is_empty() {
+                "custom".to_string()
+            } else {
+                model.role.clone()
+            },
             client,
             agent_name: String::new(),
             debug_hook: debug_hook.unwrap_or_else(|| Arc::new(NoopHook)),
@@ -290,23 +294,29 @@ fn build_genai_client(model: &ResolvedModel) -> Result<Client> {
         let api_key = model.api_key.clone();
         let adapter_kind = provider_to_adapter_kind(&model.provider);
         let model_name = model.model_name.clone();
-        let target_resolver = ServiceTargetResolver::from_resolver_fn(
-            move |_service_target: ServiceTarget| {
+        let target_resolver =
+            ServiceTargetResolver::from_resolver_fn(move |_service_target: ServiceTarget| {
                 let endpoint = Endpoint::from_owned(url.clone());
                 let auth = AuthData::from_single(api_key.clone());
                 let model_iden = ModelIden::new(adapter_kind, model_name.clone());
-                Ok(ServiceTarget { endpoint, auth, model: model_iden })
-            },
-        );
-        Ok(Client::builder().with_service_target_resolver(target_resolver).build())
+                Ok(ServiceTarget {
+                    endpoint,
+                    auth,
+                    model: model_iden,
+                })
+            });
+        Ok(Client::builder()
+            .with_service_target_resolver(target_resolver)
+            .build())
     } else if model.provider == Provider::Ollama {
         // Ollama default: genai auto-detects from "ollama::" model name prefix
         Ok(Client::builder().build())
     } else {
         // Standard API: AuthResolver with provider key
         let key = model.api_key.clone();
-        let auth =
-            AuthResolver::from_resolver_fn(move |_model_iden| Ok(Some(AuthData::from_single(key.clone()))));
+        let auth = AuthResolver::from_resolver_fn(move |_model_iden| {
+            Ok(Some(AuthData::from_single(key.clone())))
+        });
         Ok(Client::builder().with_auth_resolver(auth).build())
     }
 }

@@ -3,8 +3,8 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 
-use super::AgentOutput;
 use super::step::{Step, Step::React};
+use super::AgentOutput;
 use crate::runtime::llm::LlmClient;
 use crate::runtime::model_registry::ModelRegistry;
 use crate::runtime::tracer::{new_node_id, TraceCtx, Tracer};
@@ -56,9 +56,22 @@ pub async fn run(
             &new_node_id(),
         );
         let act_out = act_step
-            .run(&actor_input, &act_name, registry, client, tracer, &act_ctx, &act_crumb)
+            .run(
+                &actor_input,
+                &act_name,
+                registry,
+                client,
+                tracer,
+                &act_ctx,
+                &act_crumb,
+            )
             .await?;
-        tracer.on_agent_end(&act_ctx, &act_out.key, &act_out.value, t.elapsed().as_millis());
+        tracer.on_agent_end(
+            &act_ctx,
+            &act_out.key,
+            &act_out.value,
+            t.elapsed().as_millis(),
+        );
         last_result = act_out.value;
         prev_span_id = act_ctx.span_id.clone();
 
@@ -81,9 +94,22 @@ pub async fn run(
             &new_node_id(),
         );
         let reflection = reflect_step
-            .run(&reflect_input, &reflect_name, registry, client, tracer, &reflect_ctx, &reflect_crumb)
+            .run(
+                &reflect_input,
+                &reflect_name,
+                registry,
+                client,
+                tracer,
+                &reflect_ctx,
+                &reflect_crumb,
+            )
             .await?;
-        tracer.on_agent_end(&reflect_ctx, &reflection.key, &reflection.value, t.elapsed().as_millis());
+        tracer.on_agent_end(
+            &reflect_ctx,
+            &reflection.key,
+            &reflection.value,
+            t.elapsed().as_millis(),
+        );
         prev_span_id = reflect_ctx.span_id.clone();
 
         let satisfied = if matches!(reflect_step, React(_)) {

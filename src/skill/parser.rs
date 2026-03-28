@@ -160,7 +160,11 @@ pub fn parse_step(path: &Path) -> Result<StepConfig> {
         .with_context(|| format!("invalid YAML in {}", path.display()))?;
 
     let react = raw.pattern == "react"
-        || raw.call.as_ref().map(|c| !c.uses.is_empty()).unwrap_or(false);
+        || raw
+            .call
+            .as_ref()
+            .map(|c| !c.uses.is_empty())
+            .unwrap_or(false);
 
     Ok(StepConfig {
         react,

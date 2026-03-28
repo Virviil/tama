@@ -51,7 +51,10 @@ pub async fn run(
     let root_resolved = registry.resolve(root_model_config, "agent")?;
     let client = LlmClient::from_resolved(&root_resolved, debug_hook)?.with_agent_name(&agent_name);
 
-    eprintln!("tamad: entrypoint={agent_name} model={}", root_resolved.model_name);
+    eprintln!(
+        "tamad: entrypoint={agent_name} model={}",
+        root_resolved.model_name
+    );
 
     let trace_id = uuid::Uuid::new_v4().to_string();
     let root_ctx = TraceCtx::new_root(trace_id);

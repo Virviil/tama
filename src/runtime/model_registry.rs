@@ -55,8 +55,15 @@ impl ModelRegistry {
     pub fn build(config: &TomlConfig) -> Result<Self> {
         let mut models = HashMap::new();
         for (role, entry) in &config.models {
-            let resolved = resolve_role(role, entry.name(), entry.temperature(), entry.max_tokens(), entry.base_url(), &config.providers)
-                .with_context(|| format!("failed to configure model role '{role}'"))?;
+            let resolved = resolve_role(
+                role,
+                entry.name(),
+                entry.temperature(),
+                entry.max_tokens(),
+                entry.base_url(),
+                &config.providers,
+            )
+            .with_context(|| format!("failed to configure model role '{role}'"))?;
             models.insert(role.clone(), resolved);
         }
         Ok(ModelRegistry { models })
@@ -78,7 +85,11 @@ impl ModelRegistry {
     ///    falling back to `default` if the pattern default isn't defined
     ///
     /// Local `temperature`/`max_tokens` overrides in `model_config` are applied on top.
-    pub fn resolve(&self, model_config: Option<&ModelConfig>, pattern: &str) -> Result<ResolvedModel> {
+    pub fn resolve(
+        &self,
+        model_config: Option<&ModelConfig>,
+        pattern: &str,
+    ) -> Result<ResolvedModel> {
         let (mut resolved, local_temp, local_max_tokens) = match model_config {
             Some(mc) if mc.name.is_some() => {
                 // Direct spec — resolve from provider:model string + env for key/url
@@ -151,7 +162,9 @@ fn resolve_role(
     let env_temp: Option<f64> = std::env::var(format!("TAMA_MODEL_{role_upper}_TEMPERATURE"))
         .ok()
         .and_then(|s| s.parse().ok());
-    let temperature = env_temp.or(entry_temperature).or_else(|| role_default_temperature(role));
+    let temperature = env_temp
+        .or(entry_temperature)
+        .or_else(|| role_default_temperature(role));
 
     // Max tokens: env > entry (no built-in default — ∞)
     let env_max_tokens: Option<u32> = std::env::var(format!("TAMA_MODEL_{role_upper}_MAX_TOKENS"))

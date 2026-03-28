@@ -3,8 +3,8 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 
-use super::AgentOutput;
 use super::step::Step;
+use super::AgentOutput;
 use crate::runtime::graph::AgentGraph;
 use crate::runtime::llm::LlmClient;
 use crate::runtime::model_registry::ModelRegistry;
@@ -144,8 +144,22 @@ pub async fn run(
         reduce_prev.as_deref(),
         &crate::runtime::tracer::new_node_id(),
     );
-    let reduce_out = reduce_step.run(&reduce_input, "reduce", registry, client, tracer, &reduce_ctx, &reduce_crumb).await?;
-    let reduce_result = AgentOutput { key: reduce_out.key, value: reduce_out.value, span_id: String::new() };
+    let reduce_out = reduce_step
+        .run(
+            &reduce_input,
+            "reduce",
+            registry,
+            client,
+            tracer,
+            &reduce_ctx,
+            &reduce_crumb,
+        )
+        .await?;
+    let reduce_result = AgentOutput {
+        key: reduce_out.key,
+        value: reduce_out.value,
+        span_id: String::new(),
+    };
     tracer.on_agent_end(
         &reduce_ctx,
         &reduce_result.key,
@@ -164,4 +178,3 @@ fn build_map_system(body: &str, _: &[String]) -> String {
          If no fan-out is needed, call finish(key=\"done\", value=\"...\") as usual.\n\n";
     format!("{scatter_instruction}{body}")
 }
-

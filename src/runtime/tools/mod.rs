@@ -35,7 +35,11 @@ pub fn always_tools() -> Vec<Tool> {
 
 /// Build the active tool list: start + finish + read_skill (only when skills exist) + extra + unlocked.
 /// `read_skill` is omitted when `uses` is empty to prevent models from hallucinating skill calls.
-pub fn build_active_tools(uses: &[String], unlocked: &HashSet<String>, extra: &[Tool]) -> Vec<Tool> {
+pub fn build_active_tools(
+    uses: &[String],
+    unlocked: &HashSet<String>,
+    extra: &[Tool],
+) -> Vec<Tool> {
     let mut tools = always_tools();
     if !uses.is_empty() {
         tools.push(read_skill::definition());

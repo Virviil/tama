@@ -2,9 +2,9 @@ use anyhow::Result;
 use std::path::Path;
 use std::sync::Arc;
 
-use super::AgentOutput;
 use super::oneshot;
 use super::step::Step;
+use super::AgentOutput;
 use crate::runtime::llm::LlmClient;
 use crate::runtime::model_registry::ModelRegistry;
 use crate::runtime::tracer::{TraceCtx, Tracer};
@@ -30,14 +30,20 @@ pub async fn run(
 
     let critique_step = Step::from_file(&agent_dir.join("critique.md"))?;
     eprintln!("  → constitutional: critique");
-    let critique = critique_step.run(&draft, "critique", registry, client, tracer, ctx, crumb).await?.value;
+    let critique = critique_step
+        .run(&draft, "critique", registry, client, tracer, ctx, crumb)
+        .await?
+        .value;
 
     let revise_step = Step::from_file(&agent_dir.join("revise.md"))?;
     eprintln!("  → constitutional: revise");
     let revise_user = format!(
         "Original request: {input}\n\nInitial response:\n{draft}\n\nConstitutional critique:\n{critique}"
     );
-    let revised = revise_step.run(&revise_user, "revise", registry, client, tracer, ctx, crumb).await?.value;
+    let revised = revise_step
+        .run(&revise_user, "revise", registry, client, tracer, ctx, crumb)
+        .await?
+        .value;
 
     Ok(AgentOutput {
         key: "done".to_string(),
