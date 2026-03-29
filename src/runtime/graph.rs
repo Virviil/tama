@@ -38,6 +38,10 @@ impl AgentGraph {
         // Collect refs before inserting (borrow checker)
         let refs = agent_refs(&agent.pattern);
 
+        // Validate step files before any LLM work starts (reuse lint logic).
+        crate::skill::lint::lint_agent(&dir)
+            .with_context(|| format!("agent '{name}' failed validation"))?;
+
         self.nodes.insert(
             name.to_string(),
             AgentNode {
