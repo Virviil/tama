@@ -17,4 +17,4 @@ Cover:
 - Major use cases and real-world applications
 - Known limitations and open challenges
 
-Write your findings to `research.md` using write_file, then call finish(key="done", value=<one-line summary of the topic>).
+Write your findings to `research.md` using tama_files_write, then call finish(key="done", value=<one-line summary of the topic>).

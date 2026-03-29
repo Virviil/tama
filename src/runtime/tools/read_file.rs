@@ -3,7 +3,7 @@ use genai::chat::Tool;
 use serde_json::json;
 
 pub fn definition() -> Tool {
-    Tool::new("tama_read_file")
+    Tool::new("tama_files_read")
         .with_description("Read a file from the workspace.")
         .with_schema(json!({
             "type": "object",

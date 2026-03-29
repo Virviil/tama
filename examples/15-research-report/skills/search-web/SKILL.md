@@ -1,22 +1,22 @@
 ---
 name: search-web
 description: Search the web using DuckDuckGo. Use when you need to find current information, facts, news, or any topic online. No API key required.
-tools: [http_get, write_file]
+tools: [tama_http_get, tama_files_write]
 ---
 
 Search the web using DuckDuckGo HTML search (no API key needed).
 
 ## How to search
 
-Call http_get with this URL pattern:
+Call tama_http_get with this URL pattern:
 
   https://html.duckduckgo.com/html/?q=<url-encoded-query>
 
 Encode spaces as `+`, special characters with `%XX`.
 
 Examples:
-- http_get("https://html.duckduckgo.com/html/?q=rust+programming+language+2024")
-- http_get("https://html.duckduckgo.com/html/?q=climate+change+latest+research")
+- tama_http_get("https://html.duckduckgo.com/html/?q=rust+programming+language+2024")
+- tama_http_get("https://html.duckduckgo.com/html/?q=climate+change+latest+research")
 
 ## Parsing results
 

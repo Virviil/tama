@@ -16,4 +16,4 @@ Guidelines:
 - Try 2-3 different queries if initial results are insufficient
 - Prefer recent sources
 - Cite your sources in the response
-- When you have enough information, write the result to `result.md` using write_file, then call finish with a one-line summary
+- When you have enough information, write the result to `result.md` using tama_files_write, then call finish with a one-line summary

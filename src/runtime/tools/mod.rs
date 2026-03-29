@@ -21,8 +21,8 @@ pub fn all_tools() -> Vec<(&'static str, Tool)> {
         ("tama_bash", bash::definition()),
         ("tama_http_get", http_get::definition()),
         ("tama_http_post", http_post::definition()),
-        ("tama_read_file", read_file::definition()),
-        ("tama_write_file", write_file::definition()),
+        ("tama_files_read", read_file::definition()),
+        ("tama_files_write", write_file::definition()),
         ("tama_mem_set", inmemory::definition_set()),
         ("tama_mem_get", inmemory::definition_get()),
         ("tama_mem_append", inmemory::definition_append()),
@@ -62,8 +62,8 @@ pub async fn execute_tool(name: &str, args: &serde_json::Value, span_id: &str) -
         "tama_bash" => bash::execute(args).await,
         "tama_http_get" => http_get::execute(args).await,
         "tama_http_post" => http_post::execute(args).await,
-        "tama_read_file" => read_file::execute(args).await,
-        "tama_write_file" => write_file::execute(args).await,
+        "tama_files_read" => read_file::execute(args).await,
+        "tama_files_write" => write_file::execute(args).await,
         "tama_mem_set" => {
             let k = args["key"].as_str().unwrap_or("");
             let v = args["value"].as_str().unwrap_or("");

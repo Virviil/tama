@@ -66,6 +66,16 @@ export default defineConfig({
           ],
         },
         {
+          label: 'Tools',
+          items: [
+            { label: 'Overview', slug: 'tools/overview' },
+            { label: 'tama_http', slug: 'tools/tama-http' },
+            { label: 'tama_files', slug: 'tools/tama-files' },
+            { label: 'tama_mem', slug: 'tools/tama-mem' },
+            { label: 'tama_bash', slug: 'tools/tama-bash' },
+          ],
+        },
+        {
           label: 'CLI Reference',
           items: [
             { label: 'tama init', slug: 'cli/init' },
