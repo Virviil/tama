@@ -1,6 +1,7 @@
 ---
 title: Reddit launch posts
 description: Tailored posts for 10 Reddit communities. Do not publish as-is — review and personalize before posting.
+date: 2026-03-29
 draft: true
 ---
 

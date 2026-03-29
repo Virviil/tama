@@ -3,7 +3,7 @@ use genai::chat::Tool;
 use serde_json::json;
 
 pub fn definition() -> Tool {
-    Tool::new("tama_write_file")
+    Tool::new("tama_files_write")
         .with_description("Write content to a file in the workspace.")
         .with_schema(json!({
             "type": "object",
