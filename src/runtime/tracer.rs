@@ -324,6 +324,14 @@ impl BufferedTracer {
         BufferedTracer { events: Vec::new() }
     }
 
+    /// Returns the span_id of the first AgentStart event, if any.
+    pub fn agent_span_id(&self) -> Option<&str> {
+        self.events.iter().find_map(|e| match e {
+            BufferedEvent::AgentStart { ctx, .. } => Some(ctx.span_id.as_str()),
+            _ => None,
+        })
+    }
+
     pub fn flush_into(self, tracer: &mut dyn Tracer) {
         for event in self.events {
             match event {

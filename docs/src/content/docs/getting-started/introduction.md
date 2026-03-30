@@ -87,6 +87,7 @@ The named patterns (`critic`, `reflexion`, `debate`, ...) are pre-wired FSM/Para
 
 ## What's next
 
+- [Hello World: Deep Research](/getting-started/hello-world-deep-research) — build the first non-trivial example end to end
 - [Quickstart](/getting-started/quickstart) — run your first agent in 5 minutes
 - [Core Concepts](/getting-started/concepts) — understand patterns, skills, and data flow
 - [Patterns overview](/patterns/overview) — all 13 patterns at a glance

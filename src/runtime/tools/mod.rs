@@ -106,6 +106,95 @@ pub fn build_system(system_tmpl: &str, uses: &[String]) -> String {
     system
 }
 
+/// A segment of a parsed template string.
+#[derive(Debug, PartialEq)]
+pub enum Segment {
+    /// Literal text, passed through as-is.
+    Literal(String),
+    /// `${VAR_NAME}` — to be resolved from the environment.
+    Var(String),
+}
+
+/// Parse a template string into segments. Pure function, no env access.
+///
+/// Syntax:
+/// - `${VAR}` → `Segment::Var("VAR")`
+/// - `$$`     → `Segment::Literal("$")`
+/// - anything else → `Segment::Literal(...)`
+/// - unclosed `${` or bare `$` → treated as literal
+pub fn parse_template(s: &str) -> Vec<Segment> {
+    let mut segments: Vec<Segment> = Vec::new();
+    let mut literal = String::new();
+    let mut chars = s.chars().peekable();
+
+    let mut push_literal = |buf: &mut String, segs: &mut Vec<Segment>| {
+        if !buf.is_empty() {
+            segs.push(Segment::Literal(std::mem::take(buf)));
+        }
+    };
+
+    while let Some(c) = chars.next() {
+        if c != '$' {
+            literal.push(c);
+            continue;
+        }
+        match chars.peek() {
+            Some('$') => {
+                chars.next();
+                literal.push('$');
+            }
+            Some('{') => {
+                chars.next();
+                let mut var_name = String::new();
+                let mut closed = false;
+                for vc in chars.by_ref() {
+                    if vc == '}' {
+                        closed = true;
+                        break;
+                    }
+                    var_name.push(vc);
+                }
+                if closed {
+                    push_literal(&mut literal, &mut segments);
+                    segments.push(Segment::Var(var_name));
+                } else {
+                    // unclosed — treat as literal
+                    literal.push_str("${");
+                    literal.push_str(&var_name);
+                }
+            }
+            _ => literal.push('$'),
+        }
+    }
+    push_literal(&mut literal, &mut segments);
+    segments
+}
+
+/// Resolve a parsed template by substituting `Var` segments from the environment.
+/// Unknown variables are rendered as `${VAR_NAME}`.
+pub fn resolve_env(segments: &[Segment]) -> String {
+    let mut result = String::new();
+    for seg in segments {
+        match seg {
+            Segment::Literal(s) => result.push_str(s),
+            Segment::Var(name) => match std::env::var(name) {
+                Ok(val) => result.push_str(&val),
+                Err(_) => {
+                    result.push_str("${");
+                    result.push_str(name);
+                    result.push('}');
+                }
+            },
+        }
+    }
+    result
+}
+
+/// Convenience: parse and resolve in one call.
+pub fn resolve(s: &str) -> String {
+    resolve_env(&parse_template(s))
+}
+
 pub fn truncate(s: String, max: usize) -> String {
     if s.len() > max {
         s[..max].to_string()
@@ -147,6 +236,122 @@ mod tests {
         );
         assert!(system.contains("search-web"));
         assert!(system.contains("write-file"));
+    }
+
+    // ── parse_template ───────────────────────────────────────────────────────
+
+    #[test]
+    fn parse_plain_literal() {
+        assert_eq!(parse_template("hello"), vec![Segment::Literal("hello".into())]);
+    }
+
+    #[test]
+    fn parse_single_var() {
+        assert_eq!(
+            parse_template("${FOO}"),
+            vec![Segment::Var("FOO".into())]
+        );
+    }
+
+    #[test]
+    fn parse_var_with_surrounding_text() {
+        assert_eq!(
+            parse_template("Bearer ${TOKEN} rest"),
+            vec![
+                Segment::Literal("Bearer ".into()),
+                Segment::Var("TOKEN".into()),
+                Segment::Literal(" rest".into()),
+            ]
+        );
+    }
+
+    #[test]
+    fn parse_multiple_vars() {
+        assert_eq!(
+            parse_template("${A}/${B}"),
+            vec![
+                Segment::Var("A".into()),
+                Segment::Literal("/".into()),
+                Segment::Var("B".into()),
+            ]
+        );
+    }
+
+    #[test]
+    fn parse_dollar_dollar_becomes_literal_dollar() {
+        assert_eq!(parse_template("$$"), vec![Segment::Literal("$".into())]);
+    }
+
+    #[test]
+    fn parse_escaped_var_not_substituted() {
+        // $$ → literal $, then {FOO} continues as literal → merged into "${FOO}"
+        assert_eq!(
+            parse_template("$${FOO}"),
+            vec![Segment::Literal("${FOO}".into())]
+        );
+    }
+
+    #[test]
+    fn parse_unclosed_brace_is_literal() {
+        assert_eq!(
+            parse_template("${UNCLOSED"),
+            vec![Segment::Literal("${UNCLOSED".into())]
+        );
+    }
+
+    #[test]
+    fn parse_bare_dollar_is_literal() {
+        // bare $ not followed by { or $ → merged into surrounding literal
+        assert_eq!(
+            parse_template("price is $10"),
+            vec![Segment::Literal("price is $10".into())]
+        );
+    }
+
+    #[test]
+    fn parse_no_dollar_empty_string() {
+        assert_eq!(parse_template(""), vec![]);
+    }
+
+    // ── resolve_env (impure — tests use sentinel env vars) ───────────────────
+
+    #[test]
+    fn resolve_known_var() {
+        std::env::set_var("_TAMA_TEST_FOO", "hello");
+        assert_eq!(resolve_env(&[Segment::Var("_TAMA_TEST_FOO".into())]), "hello");
+    }
+
+    #[test]
+    fn resolve_unknown_var_left_as_is() {
+        assert_eq!(
+            resolve_env(&[Segment::Var("_TAMA_NO_SUCH_VAR_XYZ".into())]),
+            "${_TAMA_NO_SUCH_VAR_XYZ}"
+        );
+    }
+
+    #[test]
+    fn resolve_mixed_segments() {
+        std::env::set_var("_TAMA_TEST_KEY", "secret");
+        assert_eq!(
+            resolve_env(&[
+                Segment::Literal("Bearer ".into()),
+                Segment::Var("_TAMA_TEST_KEY".into()),
+            ]),
+            "Bearer secret"
+        );
+    }
+
+    // ── resolve (integration) ────────────────────────────────────────────────
+
+    #[test]
+    fn resolve_end_to_end() {
+        std::env::set_var("_TAMA_TEST_E2E", "works");
+        assert_eq!(resolve("result: ${_TAMA_TEST_E2E}"), "result: works");
+    }
+
+    #[test]
+    fn resolve_no_vars_unchanged() {
+        assert_eq!(resolve("https://example.com/path"), "https://example.com/path");
     }
 
     // ── truncate ─────────────────────────────────────────────────────────────

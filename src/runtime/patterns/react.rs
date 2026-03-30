@@ -45,8 +45,9 @@ pub async fn react_loop(
 
     for iter in 0..max_iter {
         let step = format!("react_{}", iter + 1);
+        let llm_ctx = ctx.child();
         let t = Instant::now();
-        let response = client
+        let response = match client
             .chat_with_step(
                 req.clone(),
                 &step,
@@ -55,7 +56,26 @@ pub async fn react_loop(
                 &ctx.span_id,
                 crumb,
             )
-            .await?;
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                let duration_ms = t.elapsed().as_millis();
+                tracer.on_llm_call(
+                    &llm_ctx,
+                    &step,
+                    client.model_name(),
+                    client.role(),
+                    client.temperature(),
+                    &system,
+                    &format!("[error: {e}]"),
+                    0,
+                    0,
+                    duration_ms,
+                );
+                return Err(e);
+            }
+        };
         let duration_ms = t.elapsed().as_millis();
 
         let (input_tokens, output_tokens) = extract_usage(&response);
@@ -74,7 +94,6 @@ pub async fn react_loop(
         // require an explicit finish(key="<routing-word>", value="...") call.
         // A plain-text response here will always produce key="done" and break routing.
         if response.tool_calls().is_empty() {
-            let llm_ctx = ctx.child();
             tracer.on_llm_call(
                 &llm_ctx,
                 &step,
@@ -101,7 +120,6 @@ pub async fn react_loop(
         }
 
         let tool_calls = response.into_tool_calls();
-        let llm_ctx = ctx.child();
         tracer.on_llm_call(
             &llm_ctx,
             &step,

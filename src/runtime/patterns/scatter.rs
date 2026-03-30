@@ -116,12 +116,12 @@ pub async fn run(
     let mut combined = String::new();
     let mut last_worker_span: Option<String> = None;
     for (item, result, sub_tracer) in results {
+        if let Some(sid) = sub_tracer.agent_span_id() {
+            last_worker_span = Some(sid.to_string());
+        }
         sub_tracer.flush_into(tracer);
         match result {
-            Ok(r) => {
-                last_worker_span = Some(r.span_id.clone());
-                combined.push_str(&format!("[Item: {item}]\n{}\n\n", r.value));
-            }
+            Ok(r) => combined.push_str(&format!("[Item: {item}]\n{}\n\n", r.value)),
             Err(e) => combined.push_str(&format!("[Item: {item}]\n[error: {e}]\n\n")),
         }
     }
