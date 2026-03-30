@@ -1,0 +1,434 @@
+---
+title: "Hello World: Deep Research"
+description: Build the 00-deep-research example from scratch and understand why each prompt is shaped the way it is.
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+This guide rebuilds [`examples/00-deep-research`](https://github.com/mlnja/tama/tree/main/examples/00-deep-research) from zero.
+
+The goal is simple: type a topic, fan it out into a few strong research angles, synthesize the results into a report, then run one quality pass before returning the final answer.
+
+It is "hello world" in the sense that it stays small, but it already shows the three things that make tama interesting:
+
+- `tama init` gives you a runnable project immediately.
+- `tama add` scaffolds agents and skills without hiding the prompts from you.
+- Patterns compose cleanly: `fsm` for control flow, `scatter` for parallel research, `react` for tool-using workers.
+
+## What we are building
+
+By the end, your project will look like this:
+
+```text
+deep-research/
+├── tama.toml
+├── agents/
+│   ├── research-pipeline/
+│   │   └── AGENT.md
+│   ├── research/
+│   │   ├── AGENT.md
+│   │   └── reduce.md
+│   ├── research-angle/
+│   │   └── AGENT.md
+│   └── reviewer/
+│       └── AGENT.md
+└── skills/
+    ├── files/
+    │   └── SKILL.md
+    ├── memory/
+    │   └── SKILL.md
+    └── search-web/
+        └── SKILL.md
+```
+
+Execution flow:
+
+```text
+input
+  -> research-pipeline (fsm)
+  -> research (scatter map)
+  -> research-angle x N (parallel workers)
+  -> research/reduce.md (synthesis)
+  -> reviewer (approve or retry)
+```
+
+## Step 1: Create the project
+
+<Steps>
+
+1. **Initialize a new project**
+
+   ```bash
+   tama init deep-research
+   cd deep-research
+   ```
+
+   `tama init` creates a default runnable project. That default agent is useful as a sanity check, but for this guide we are going to replace the entrypoint with a small multi-agent pipeline.
+
+2. **Scaffold the agents**
+
+   ```bash
+   tama add fsm research-pipeline
+   tama add scatter research
+   tama add react research-angle
+   tama add react reviewer
+   ```
+
+3. **Scaffold the skills**
+
+   ```bash
+   tama add skill search-web
+   tama add skill memory
+   tama add skill files
+   ```
+
+</Steps>
+
+At this point you have the right file structure, but the generated content is still placeholder text. Now we replace it with the actual example.
+
+## Step 2: Configure the project
+
+Replace `tama.toml` with:
+
+```toml
+[project]
+name = "deep-research"
+entrypoint = "research-pipeline"
+
+[models]
+thinker = "anthropic:claude-sonnet-4-6"
+default = "anthropic:claude-sonnet-4-6"
+```
+
+Why this shape:
+
+- `entrypoint = "research-pipeline"` makes the FSM the public interface of the project.
+- We use one `thinker` model role everywhere to keep the first version predictable.
+- `default` is set to the same model so any stage without an explicit role still resolves cleanly.
+
+## Step 3: Add the skills
+
+### `skills/search-web/SKILL.md`
+
+```md
+---
+name: search-web
+description: Search the web via Jina AI - clean markdown results. Requires JINA_API_KEY env var.
+tools: [tama_http_get]
+---
+
+EVERY call to tama_http_get in this skill MUST include the authorization header. No exceptions:
+
+  headers=[{"Authorization": "Bearer ${JINA_API_KEY}"}]
+
+Calls without this header will return 401 and fail.
+
+## Step 1 - search
+
+  https://s.jina.ai/?q=<url-encoded-query>
+
+Returns a clean list of results: titles, URLs, and snippets. Encode spaces as `+`.
+
+  tama_http_get(url="https://s.jina.ai/?q=rust+programming+language+2024", headers=[{"Authorization": "Bearer ${JINA_API_KEY}"}])
+
+Pick the 1-2 most relevant URLs from the results.
+
+## Step 2 - read
+
+  https://r.jina.ai/<full-url>
+
+Fetches a page as clean markdown - no ads, no nav, no boilerplate.
+
+  tama_http_get(url="https://r.jina.ai/https://en.wikipedia.org/wiki/Rust_(programming_language)", headers=[{"Authorization": "Bearer ${JINA_API_KEY}"}])
+
+## Rules
+
+- At most 1 search call per query.
+- At most 2 reader calls per search. Stop when you have enough.
+- Extract only what is relevant to your research question.
+```
+
+Why the prompt is written this way:
+
+- The skill is strict about headers because otherwise the first live run fails immediately.
+- It separates "search" from "read" so the agent does not waste calls opening random links.
+- The call budget matters. A "deep research" hello world should teach focus, not brute force.
+
+### `skills/memory/SKILL.md`
+
+```md
+---
+name: memory
+description: Store and retrieve values across agent steps in the same run. Use for preserving state that must survive FSM transitions.
+tools: [tama_mem_set, tama_mem_get, tama_mem_append]
+---
+
+Key-value store scoped to the current run.
+
+## Store a value
+
+  tama_mem_set(key="task", value="the original research topic")
+
+## Retrieve a value
+
+  tama_mem_get(key="task")
+
+Returns the stored string, or an empty string if not set.
+
+## Append to a list
+
+  tama_mem_append(key="notes", item="new item")
+
+Appends to a newline-separated list. Useful for accumulating feedback across retries.
+```
+
+Why it exists:
+
+- Tama agents are intentionally local. If one step must preserve context for a later step, make that state explicit.
+- We store the original task so retries improve the same assignment instead of accidentally researching the review feedback itself.
+
+### `skills/files/SKILL.md`
+
+```md
+---
+name: files
+description: Write output files to disk. Use to persist final results as readable artifacts.
+tools: [tama_files_write]
+---
+
+Write content to a file on disk.
+
+  tama_files_write(path="report.md", content="...")
+
+The file is written relative to the project root. Use markdown files for reports and text output.
+```
+
+Why it exists:
+
+- Returning a string is enough for the runtime, but writing `report.md` makes the run leave behind a useful artifact.
+- That small change is the difference between "demo output" and "something a person can inspect later."
+
+## Step 4: Add the agents
+
+### `agents/research-pipeline/AGENT.md`
+
+```yaml
+---
+name: research-pipeline
+description: Deep research pipeline with quality review. Researches a topic in parallel across multiple angles, then reviews quality and retries if needed.
+version: 1.0.0
+pattern: fsm
+initial: research
+states:
+  research: reviewer
+  reviewer:
+    - approved: ~
+    - retry: research
+---
+```
+
+Why `fsm`:
+
+- The workflow has one real branch: either the report is good enough, or it should loop once more.
+- `fsm` keeps that policy explicit in data instead of hiding it in prose.
+
+### `agents/research/AGENT.md`
+
+```yaml
+---
+name: research
+description: Scatter-based deep research. Decomposes a topic into 2-3 angles and researches each in parallel.
+version: 1.0.0
+pattern: scatter
+worker: research-angle
+call:
+  model:
+    role: thinker
+  uses: [search-web, memory]
+---
+
+You are a deep research coordinator. Your job is to decompose a research topic into 4-6 distinct, non-overlapping angles.
+
+## Setup
+
+Use the memory skill to read key `task`.
+- If empty: this is the first run. Write the current input to memory key `task`.
+- If set: this is a retry. Append the reviewer feedback from the current input to memory key `retries`. Use that feedback to improve your angles, but always research the topic from key `task`, not the current input.
+
+## Angles
+
+Pick 2-3 angles that cover the most important dimensions of the topic. Good options: history & origins, core concepts, current state of the art, real-world use cases, criticisms & limitations, future outlook. Adapt to the topic.
+
+Call finish(key="parallel", value='["angle 1 query", "angle 2 query"]') with a JSON array of 2-3 focused, self-contained research questions - one per angle.
+```
+
+Why this prompt works:
+
+- The coordinator does not try to write the report. It only decides what parallel work should happen.
+- "Non-overlapping angles" is the critical phrase. Without it, parallel workers tend to duplicate each other.
+- The retry logic writes reviewer feedback to memory, but still anchors on the original task. That prevents drift.
+
+### `agents/research/reduce.md`
+
+````md
+---
+pattern: react
+call:
+  uses: [files, memory]
+---
+
+You are a research synthesizer. You have received parallel research results from multiple angles. Synthesize them into a single, well-structured report.
+
+Write the final report to `report.md` using the files skill. Store the full report content in memory under key `report`. Call finish with the full report content as the value.
+
+## Report format
+
+```
+# [Topic]
+
+## Executive Summary
+2-3 sentence overview of the most important findings.
+
+## [Section per research angle]
+Findings, context, and key facts. Cite sources inline.
+
+## Sources
+- [title](url)
+```
+
+## Rules
+- Do not repeat information across sections.
+- Mark uncertain or unverified claims with "(unverified)".
+- Cite sources inline where possible.
+- Each section should be 2-4 paragraphs.
+````
+
+Why this prompt works:
+
+- `scatter` needs a reduce step that merges parallel outputs into one coherent artifact.
+- The structure is opinionated enough to produce a readable report, but loose enough to work for many topics.
+- Writing to both file storage and memory lets the next state review the exact same report content.
+
+### `agents/research-angle/AGENT.md`
+
+```yaml
+---
+name: research-angle
+description: Researches one specific angle or question about a topic using web search.
+version: 1.0.0
+pattern: react
+max_iter: 8
+call:
+  model:
+    role: thinker
+  uses: [search-web]
+---
+
+You are a focused research specialist. Given a specific research question, search the web and produce a concise, well-sourced summary.
+
+## Process
+
+1. Identify 2-3 targeted search queries for the given question.
+2. Search using the search-web skill.
+3. Follow the most relevant links to get full details.
+4. Synthesize findings into a structured summary with sources.
+
+## Output format
+
+Write 2-4 paragraphs covering key facts, important context, and any caveats.
+End with a sources list: `- [title](url)`
+
+Call `finish` with your complete summary as the value.
+```
+
+Why this prompt works:
+
+- This worker is intentionally narrow. It receives one question, not the whole assignment.
+- A modest `max_iter` prevents the "one more search" spiral.
+- Requiring sources at the worker level makes the reducer's job much easier.
+
+### `agents/reviewer/AGENT.md`
+
+```yaml
+---
+name: reviewer
+description: Quality reviewer for research reports. Approves if the report is thorough and well-sourced, or requests a retry with specific improvement guidance.
+version: 1.0.0
+pattern: react
+call:
+  model:
+    role: thinker
+  uses: [memory]
+---
+
+You are a senior research editor. You receive a research report and must judge its quality.
+
+## Approval criteria
+
+Approve the report if ALL of the following are true:
+- Covers at least 2 distinct angles or dimensions of the topic
+- Each section has at least 2 paragraphs of substantive content
+- Sources are cited (at least 3 distinct sources total)
+- No major factual gaps or obvious missing perspectives
+
+## Decision
+
+First, read memory key `retries`. Count how many entries are stored there - each entry is one previous retry.
+
+- If the report meets all criteria: retrieve the report from memory key `report` and call `finish(key="approved", value=<report content>)` - pass the full report as the value, not a verdict message.
+- If the report has significant gaps AND `retries` is empty (no previous retries): call `finish(key="retry", value="<specific feedback>")` with precise, actionable feedback.
+- If `retries` has 1 or more entries: the research has already been retried - approve the report regardless and call `finish(key="approved", value=<report content>)`.
+```
+
+Why this prompt works:
+
+- The reviewer is strict once, not forever. That gives you one quality-improvement loop without risking endless churn.
+- It returns the report content, not just "approved", so the outer pipeline's final output is immediately useful.
+
+## Step 5: Set environment variables
+
+`tama init` already gave you `.env.example`. For this project, add one more variable for Jina:
+
+```bash
+cp .env.example .env
+```
+
+Then make sure `.env` contains at least:
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-...
+JINA_API_KEY=jina_...
+TAMA_MODEL_THINKER=anthropic:claude-sonnet-4-6
+```
+
+If you prefer OpenAI or Gemini, switch the model role in `tama.toml` and set the matching provider key.
+
+## Step 6: Run it
+
+```bash
+tama run "Write a deep research report on the Rust programming language"
+```
+
+Expected behavior:
+
+1. `research-pipeline` starts the workflow.
+2. `research` splits the topic into a few good angles.
+3. `research-angle` workers run in parallel.
+4. `reduce.md` writes `report.md`.
+5. `reviewer` either approves or asks for one retry.
+
+When the run completes, you should have both:
+
+- A final answer returned by `tama run`
+- A `report.md` file in the project root
+
+## Why this is a good first real project
+
+This example is small enough to read in one sitting, but it teaches the core tama design rules:
+
+- Use patterns for structure, not hidden control flow in prompts.
+- Keep worker agents narrow and specialized.
+- Move cross-step state into skills like `memory` instead of hoping the model "remembers."
+- Make outputs durable when they matter.
+
+If you understand this example, you can already build useful pipelines for market research, due diligence, literature review, or fact gathering.

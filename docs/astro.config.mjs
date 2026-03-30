@@ -35,6 +35,7 @@ export default defineConfig({
           items: [
             { label: 'Introduction', slug: 'getting-started/introduction' },
             { label: 'Installation', slug: 'getting-started/installation' },
+            { label: 'Hello World: Deep Research', slug: 'getting-started/hello-world-deep-research' },
             { label: 'Quickstart', slug: 'getting-started/quickstart' },
             { label: 'Core Concepts', slug: 'getting-started/concepts' },
           ],
